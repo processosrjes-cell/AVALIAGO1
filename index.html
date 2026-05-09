@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AvaliaGO — Sistema de Avaliação</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0f2447;--navy2:#1a3a6b;--navy3:#2355a0;
+  --gold:#e8a020;--gold2:#f5c842;
+  --green:#1db36e;--red:#e74c3c;--orange:#e67e22;
+  --bg:#f0f3fa;--surface:#fff;--border:#dde3ef;
+  --text:#0f1c35;--text2:#556080;--text3:#8898b8;
+  --r:10px;--r2:14px;--sh:0 2px 14px rgba(15,36,71,.09);
+}
+html,body{height:100%;font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);font-size:14px;overflow:hidden}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:100vh}
+#sidebar{width:230px;min-width:230px;background:var(--navy);display:flex;flex-direction:column;transition:width .2s}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── SIDEBAR ── */
+.sb-hd{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px}
+.sb-logo-ic{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.sb-brand-name{color:#fff;font-size:14px;font-weight:700}
+.sb-brand-sub{color:rgba(255,255,255,.4);font-size:10px}
+.sb-user{padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-uname{color:#fff;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-urole{color:rgba(255,255,255,.5);font-size:11px;margin-top:2px}
+.sb-nav{flex:1;overflow-y:auto;padding:8px 0;scrollbar-width:none}
+.sb-nav::-webkit-scrollbar{display:none}
+.sb-sec{color:rgba(255,255,255,.28);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;padding:10px 16px 3px}
+.nav-it{display:flex;align-items:center;gap:9px;padding:8px 16px;cursor:pointer;border-left:3px solid transparent;transition:.12s}
+.nav-it:hover{background:rgba(255,255,255,.07)}
+.nav-it.active{background:rgba(255,255,255,.12);border-left-color:var(--gold)}
+.nav-ic{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.nav-lb{color:rgba(255,255,255,.82);font-size:12.5px;white-space:nowrap;overflow:hidden;flex:1}
+.nav-badge{background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 7px;flex-shrink:0}
+.sb-ft{padding:10px 16px;border-top:1px solid rgba(255,255,255,.08)}
+.logout{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.45);cursor:pointer;font-size:12.5px;padding:5px 2px}
+.logout:hover{color:rgba(255,255,255,.82)}
+
+/* ── TOPBAR ── */
+#topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 22px;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.tb-title{font-size:15px;font-weight:600}
+.tb-right{display:flex;align-items:center;gap:10px}
+.month-badge{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:500;color:var(--text2)}
+
+/* ── CONTENT ── */
+#content{flex:1;overflow-y:auto;padding:20px}
+
+/* ── CARD ── */
+.card{background:var(--surface);border-radius:var(--r2);border:1px solid var(--border);padding:18px;margin-bottom:16px;box-shadow:var(--sh)}
+.card-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:10px}
+.card-title{font-size:14.5px;font-weight:600;color:var(--navy2)}
+.card-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ── GRID ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+
+/* ── STAT ── */
+.stat{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent,var(--navy2));border-radius:var(--r2);padding:14px 16px;box-shadow:var(--sh)}
+.stat-num{font-size:26px;font-weight:700;line-height:1}
+.stat-label{font-size:11px;color:var(--text2);margin-top:4px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;font-size:12.5px;font-weight:500;font-family:inherit;transition:.12s;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--navy2);color:#fff}.btn-primary:hover{background:var(--navy3)}
+.btn-gold{background:var(--gold);color:#fff}.btn-gold:hover{background:var(--gold2);color:var(--navy)}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#c0392b}
+.btn-ghost{background:var(--bg);border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{background:#e8ecf5}
+.btn-sm{padding:4px 10px;font-size:12px;border-radius:5px}
+
+/* ── FORM ── */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.fg label .cn{color:var(--text3);font-size:10px;font-weight:300;margin-left:3px}
+input,select,textarea{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text);transition:border-color .12s}
+input:focus,select:focus,textarea:focus{border-color:var(--navy3);box-shadow:0 0 0 3px rgba(35,85,160,.1)}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.cb-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px}
+.cb-item{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;padding:4px 7px;border-radius:5px}
+.cb-item:hover{background:var(--bg)}
+.cb-item input[type=checkbox]{width:auto;accent-color:var(--navy2)}
+
+/* ── TABLE ── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{background:#f5f7fc;font-size:11px;font-weight:600;color:var(--text2);padding:8px 11px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody td{padding:8px 11px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+tbody tr:hover{background:#f8fafd}
+tbody tr:last-child td{border-bottom:none}
+
+/* ── TAGS ── */
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-leve{background:#e8f5e9;color:#1db36e}
+.tag-medio{background:#fff3e0;color:#e67e22}
+.tag-grave{background:#fde8e8;color:#e74c3c}
+.tag-critico{background:#1a0000;color:#ff7070}
+.tag-bom{background:#e8f5e9;color:#1db36e}
+.tag-muitobom{background:#e3f2fd;color:#1565c0}
+.tag-excelente{background:#ede7f6;color:#7c3aed}
+.tag-extraordinario{background:#fff8e1;color:#c65100}
+.tag-pendente{background:#fff3cd;color:#856404}
+.tag-aprovado{background:#d1f7e0;color:#0d6e33}
+.tag-recusado{background:#fde8e8;color:#e74c3c}
+.tag-cancelado{background:#eceff1;color:#607d8b}
+.tag-admin{background:#1a0033;color:#c084fc}
+.tag-gerente{background:#fff3e0;color:#c65100}
+.tag-coordenador{background:#e3f2fd;color:#1565c0}
+.tag-supervisor{background:#e8f5e9;color:#1db36e}
+.tag-lider{background:#f3f4f6;color:#374151}
+.turno{background:#e8ecf8;color:var(--navy2);font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px}
+
+/* ── PROGRESS ── */
+.pb-w{background:#e8ecf5;border-radius:20px;height:6px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle}
+.pb{height:6px;border-radius:20px}
+.pts-p{color:var(--green);font-weight:700}
+.pts-n{color:var(--red);font-weight:700}
+
+/* ── MODAL ── */
+.mo{position:fixed;inset:0;background:rgba(10,20,50,.52);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px);padding:16px}
+.modal{background:var(--surface);border-radius:16px;padding:26px;max-width:540px;width:100%;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 24px 80px rgba(0,0,0,.25)}
+.modal-lg{max-width:680px}
+.modal-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:18px}
+.modal-x{position:absolute;top:14px;right:16px;font-size:21px;cursor:pointer;color:var(--text3);background:none;border:none;line-height:1}
+.modal-x:hover{color:var(--text)}
+.modal-ft{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* ── ALERTS ── */
+.alert{padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:12px;border-left:4px solid;display:flex;align-items:center;gap:8px}
+.alert-info{background:#e8f4fd;color:#1565c0;border-color:#2196f3}
+.alert-success{background:#e8f8f0;color:#0d6e33;border-color:var(--green)}
+.alert-warn{background:#fff8e1;color:#856404;border-color:var(--gold)}
+.alert-error{background:#fde8e8;color:#c0392b;border-color:var(--red)}
+.toast{position:fixed;bottom:22px;right:22px;max-width:360px;z-index:9999;box-shadow:var(--sh);animation:su .22s ease}
+@keyframes su{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── LOADING ── */
+.spin{width:20px;height:20px;border:2.5px solid var(--border);border-top-color:var(--navy2);border-radius:50%;animation:sp .65s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading-row{text-align:center;padding:36px;color:var(--text3)}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:36px;color:var(--text3);font-size:13px}
+.empty-ic{font-size:34px;display:block;margin-bottom:8px}
+
+/* ── CHART ── */
+.bc{display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:8px}
+.bc-col{display:flex;flex-direction:column;align-items:center;flex:1}
+.bc-bar{width:100%;border-radius:4px 4px 0 0;min-height:4px}
+.bc-val{font-size:10px;font-weight:600;margin-bottom:2px}
+.bc-lbl{font-size:9.5px;color:var(--text3);margin-top:3px;text-align:center}
+
+/* ── LOGIN ── */
+#login{position:fixed;inset:0;background:linear-gradient(135deg,#0f2447,#1a3a6b 55%,#2355a0);display:flex;align-items:center;justify-content:center;z-index:2000}
+.lcard{background:#fff;border-radius:18px;padding:42px 38px;width:390px;max-width:95vw;box-shadow:0 40px 100px rgba(0,0,0,.35)}
+.llogo{text-align:center;margin-bottom:30px}
+.llogo-ic{font-size:38px}
+.llogo-title{font-size:22px;font-weight:700;color:var(--navy);margin-top:6px}
+.llogo-sub{font-size:12px;color:var(--text3);margin-top:3px}
+.lbtn{width:100%;justify-content:center;margin-top:16px;padding:11px;font-size:14px;border-radius:9px}
+
+hr.div{border:none;border-top:1px solid var(--border);margin:14px 0}
+.hl{background:#fffde7!important}
+code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:11.5px}
+
+@media(max-width:900px){.g4,.g5{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.g4,.g5,.g3,.g2{grid-template-columns:1fr}#sidebar{width:54px;min-width:54px}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="lcard">
+    <div class="llogo">
+      <div class="llogo-ic">⭐</div>
+      <div class="llogo-title">AvaliaGO</div>
+      <div class="llogo-sub">Sistema de Avaliação / 评估系统</div>
+    </div>
+    <div id="lalert"></div>
+    <div class="fg"><label>Login <span class="cn">/ 用户名</span></label>
+      <input id="li" placeholder="seu login..." autocomplete="username">
+    </div>
+    <div class="fg"><label>Senha <span class="cn">/ 密码</span></label>
+      <input id="lp" type="password" placeholder="sua senha..." autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary lbtn" onclick="doLogin()">🔑 Entrar / 登录</button>
+    <div style="text-align:center;margin-top:12px;font-size:11px;color:#bbb">Acesso por nível hierárquico / 分级访问</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div id="sidebar">
+    <div class="sb-hd">
+      <div class="sb-logo-ic">⭐</div>
+      <div><div class="sb-brand-name">AvaliaGO</div><div class="sb-brand-sub">Google Sheets v2.1</div></div>
+    </div>
+    <div class="sb-user">
+      <div class="sb-uname" id="sb-name">—</div>
+      <div class="sb-urole" id="sb-role">—</div>
+    </div>
+    <div class="sb-nav" id="sb-nav"></div>
+    <div class="sb-ft">
+      <div class="logout" onclick="doLogout()">🚪 <span>Sair / 退出</span></div>
+    </div>
+  </div>
+  <div id="main">
+    <div id="topbar">
+      <div class="tb-title" id="pg-title">Dashboard</div>
+      <div class="tb-right">
+        <span class="month-badge" id="tb-month">—</span>
+        <span class="tag" id="tb-role">—</span>
+      </div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<div id="mod-container"></div>
+<div id="toast-container"></div>
+
+<script>
+'use strict';
+
+// ============================================================
+//  ⚠️  COLE AQUI A URL DO SEU WEB APP (Apps Script)
+//  Após publicar: Implantar → Nova implantação → App da Web
+//  Executar como: EU | Acesso: QUALQUER PESSOA
+// ============================================================
+var GS_URL = 'COLE_AQUI_A_URL_DO_SEU_WEB_APP';
+// Exemplo: 'https://script.google.com/macros/s/AKfycbXXXXX/exec'
+// ============================================================
+
+// ===== CONSTANTES =====
+var ROLE_LABELS = {
+  admin:'Administrador / 管理员', gerente:'Gerente / 经理',
+  coordenador:'Coordenador / 协调员', supervisor:'Supervisor / 主管', lider:'Líder / 领班'
+};
+var INCONF = {
+  leve:    {label:'Leve / 轻微',      cn:'轻微',   pts:-5},
+  medio:   {label:'Médio / 中等',     cn:'中等',   pts:-10},
+  grave:   {label:'Grave / 严重',     cn:'严重',   pts:-20},
+  critico: {label:'Crítico / 极严重', cn:'极严重', pts:-40}
+};
+var BONUS = {
+  bom:           {label:'Bom / 良好',           cn:'良好',   pts:5},
+  muitobom:      {label:'Muito Bom / 非常好',    cn:'非常好', pts:10},
+  excelente:     {label:'Excelente / 优秀',      cn:'优秀',   pts:20},
+  extraordinario:{label:'Extraordinário / 卓越', cn:'卓越',   pts:40}
+};
+var CRITERIOS = [
+  {v:'assiduidade',l:'Assiduidade / 出勤'},
+  {v:'proatividade',l:'Proatividade / 主动性'},
+  {v:'lideranca',l:'Liderança / 领导力'},
+  {v:'inovacao',l:'Inovação / 创新'},
+  {v:'resultado',l:'Resultado / 成果'},
+  {v:'destaque',l:'Destaque / 突出表现'},
+  {v:'melhoria',l:'Melhoria sugerida / 改进建议'}
+];
+var CARGOS = ['auxiliar','focal','assistente'];
+var CARGO_LABELS = {auxiliar:'Auxiliar / 辅助员',focal:'Focal / 重点员工',assistente:'Assistente / 助理'};
+var TURNOS = ['T1','T2','T3','T4'];
+var MODS = ['Carregamento','Indução','Separação','Expedição','Recebimento','Qualidade','Embalagem','Estoque'];
+
+// ===== STATE =====
+var S = { user:null, page:'dashboard', config:{meAtual:''}, users:[], colabs:[], registros:[] };
+
+// ============================================================
+//  API — usa GET com parâmetros na URL (único método que
+//  funciona com CORS no Apps Script sem proxy)
+// ============================================================
+function api(action, body) {
+  body = body || {};
+  var encoded = encodeURIComponent(JSON.stringify(body));
+  var url = GS_URL + '?action=' + encodeURIComponent(action) + '&data=' + encoded;
+  return fetch(url, { method: 'GET', redirect: 'follow' })
+    .then(function(r){ return r.json(); })
+    .catch(function(e){ return { ok: false, msg: 'Falha de rede: ' + e.message }; });
+}
+
+// ===== TOAST =====
+function toast(msg, type, dur) {
+  type = type || 'info'; dur = dur || 3200;
+  var icons = {info:'ℹ️', success:'✅', warn:'⚠️', error:'❌'};
+  var el = document.createElement('div');
+  el.className = 'alert alert-' + type + ' toast';
+  el.innerHTML = '<span>' + (icons[type]||'') + '</span> ' + msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, dur);
+}
+
+// ===== LOGIN / LOGOUT =====
+function doLogin() {
+  var login = document.getElementById('li').value.trim();
+  var pass  = document.getElementById('lp').value;
+  if (!login || !pass) { lalert('Preencha login e senha', 'warn'); return; }
+  if (GS_URL === 'COLE_AQUI_A_URL_DO_SEU_WEB_APP') {
+    lalert('⚠️ Configure a variável GS_URL no topo do arquivo HTML com a URL do seu Apps Script!', 'error'); return;
+  }
+  lalert('<span class="spin"></span> Conectando...', 'info');
+  api('login', {login:login, pass:pass}).then(function(res) {
+    if (!res.ok) { lalert(res.msg || 'Erro ao conectar', 'error'); return; }
+    S.user = res.data;
+    loadAll().then(function() {
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      buildSidebar();
+      navigate('dashboard');
+    });
+  });
+}
+
+function lalert(msg, type) {
+  document.getElementById('lalert').innerHTML = '<div class="alert alert-' + type + '">' + msg + '</div>';
+}
+
+function doLogout() {
+  S.user = null; S.users = []; S.colabs = []; S.registros = [];
+  document.getElementById('login').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('li').value = '';
+  document.getElementById('lp').value = '';
+  document.getElementById('lalert').innerHTML = '';
+}
+
+// ===== LOAD ALL DATA =====
+function loadAll() {
+  var u = S.user;
+  var mes = S.config.meAtual || '';
+  var calls = [
+    api('getConfig'),
+    api('getColabs',    {callerRole:u.role, callerId:u.id, callerTurno:u.turno||''}),
+    api('getRegistros', {callerRole:u.role, callerId:u.id, callerTurno:u.turno||'', mes:mes})
+  ];
+  if (u.role === 'admin') calls.push(api('getUsers', {callerRole:u.role}));
+  // supervisor e coordenador precisam dos usuários para mostrar líderes/supervisores
+  if (u.role === 'supervisor' || u.role === 'coordenador') calls.push(api('getUsers', {callerRole:u.role}));
+
+  return Promise.all(calls).then(function(results) {
+    if (results[0].ok) S.config   = results[0].data || {};
+    if (results[1].ok) S.colabs   = results[1].data || [];
+    if (results[2].ok) S.registros= results[2].data || [];
+    if (results[3] && results[3].ok) S.users = results[3].data || [];
+  });
+}
+
+function refreshData() {
+  return loadAll().then(function(){ renderPage(); buildSidebar(); });
+}
+
+// ===== SIDEBAR =====
+var NAV = {
+  admin:[
+    {id:'dashboard',ic:'🏠',lb:'Dashboard / 仪表盘'},
+    {sec:'Administração / 管理'},
+    {id:'usuarios',ic:'👤',lb:'Usuários / 用户'},
+    {id:'colaboradores',ic:'👥',lb:'Colaboradores / 员工'},
+    {id:'upload',ic:'📤',lb:'Importar Excel / 导入'},
+    {sec:'Operação / 操作'},
+    {id:'registros',ic:'📋',lb:'Todos Registros / 记录'},
+    {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'},
+    {sec:'Sistema / 系统'},
+    {id:'config',ic:'⚙️',lb:'Configurações / 配置'}
+  ],
+  gerente:[{id:'dashboard',ic:'📊',lb:'Visão Geral / 总览'}],
+  coordenador:[
+    {id:'dashboard',ic:'🏠',lb:'Dashboard / 仪表盘'},
+    {id:'registrar',ic:'➕',lb:'Novo Registro / 新建'},
+    {id:'validar',ic:'✅',lb:'Validar / 审批',badge:true},
+    {id:'colaboradores',ic:'👥',lb:'Colaboradores / 员工'},
+    {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'}
+  ],
+  supervisor:[
+    {id:'dashboard',ic:'🏠',lb:'Dashboard / 仪表盘'},
+    {id:'registrar',ic:'➕',lb:'Novo Registro / 新建'},
+    {id:'validar',ic:'✅',lb:'Validar / 审批',badge:true},
+    {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'}
+  ],
+  lider:[
+    {id:'dashboard',ic:'🏠',lb:'Dashboard / 仪表盘'},
+    {id:'registrar',ic:'➕',lb:'Novo Registro / 新建'},
+    {id:'meus',ic:'📋',lb:'Meus Registros / 我的记录'}
+  ]
+};
+
+function buildSidebar() {
+  var u = S.user;
+  document.getElementById('sb-name').textContent = u.name;
+  document.getElementById('sb-role').textContent = ROLE_LABELS[u.role] || u.role;
+  document.getElementById('tb-role').className = 'tag tag-' + u.role;
+  document.getElementById('tb-role').textContent = ROLE_LABELS[u.role] || u.role;
+  document.getElementById('tb-month').textContent = '📅 ' + (S.config.meAtual || '');
+
+  var pend = countPending();
+  var items = NAV[u.role] || [];
+  var html = items.map(function(it) {
+    if (it.sec) return '<div class="sb-sec">' + it.sec + '</div>';
+    var bdg = it.badge && pend > 0 ? '<span class="nav-badge">' + pend + '</span>' : '';
+    return '<div class="nav-it" id="nav-' + it.id + '" onclick="navigate(\'' + it.id + '\')">' +
+      '<span class="nav-ic">' + it.ic + '</span>' +
+      '<span class="nav-lb">' + it.lb + '</span>' + bdg + '</div>';
+  }).join('');
+  document.getElementById('sb-nav').innerHTML = html;
+}
+
+function countPending() {
+  var u = S.user;
+  if (!u) return 0;
+  if (u.role === 'supervisor') {
+    var lids = S.users.filter(function(x){ return x.role==='lider' && x.turno===u.turno; }).map(function(x){ return x.id; });
+    return S.registros.filter(function(r){ return r.status==='pendente' && r.autorRole==='lider' && lids.indexOf(r.autorId)>=0; }).length;
+  }
+  if (u.role === 'coordenador') {
+    return S.registros.filter(function(r){ return r.status==='pendente' && (r.autorRole==='supervisor'||r.autorRole==='coordenador') && r.autorTurno===u.turno; }).length;
+  }
+  if (u.role === 'admin') return S.registros.filter(function(r){ return r.status==='pendente'; }).length;
+  return 0;
+}
+
+// ===== NAVIGATION =====
+var PAGE_TITLES = {
+  dashboard:'Dashboard', usuarios:'Usuários / 用户', colaboradores:'Colaboradores / 员工',
+  upload:'Importar Excel / 导入', registros:'Todos Registros / 记录', relatorios:'Relatórios / 报告',
+  config:'Configurações / 配置', registrar:'Novo Registro / 新建记录', validar:'Validar / 审批',
+  meus:'Meus Registros / 我的记录'
+};
+
+function navigate(page) {
+  S.page = page;
+  document.querySelectorAll('.nav-it').forEach(function(el){ el.classList.remove('active'); });
+  var nav = document.getElementById('nav-' + page);
+  if (nav) nav.classList.add('active');
+  document.getElementById('pg-title').textContent = PAGE_TITLES[page] || page;
+  renderPage();
+}
+
+function renderPage() {
+  var p = S.page, r = S.user.role, ct = document.getElementById('content');
+  if (p === 'dashboard') {
+    if (r === 'admin')       ct.innerHTML = dashAdmin();
+    else if (r === 'gerente') ct.innerHTML = dashGerente();
+    else if (r === 'lider')   ct.innerHTML = dashLider();
+    else if (r === 'supervisor') ct.innerHTML = dashSup();
+    else if (r === 'coordenador') ct.innerHTML = dashCoord();
+    else ct.innerHTML = '<div class="empty">Em desenvolvimento</div>';
+  }
+  else if (p === 'usuarios')      ct.innerHTML = pgUsuarios();
+  else if (p === 'colaboradores') ct.innerHTML = pgColabs();
+  else if (p === 'upload')        ct.innerHTML = pgUpload();
+  else if (p === 'registros')     ct.innerHTML = pgRegistros(S.registros);
+  else if (p === 'relatorios')    ct.innerHTML = pgRelatorios();
+  else if (p === 'config')        ct.innerHTML = pgConfig();
+  else if (p === 'registrar')     ct.innerHTML = pgRegistrar();
+  else if (p === 'validar')       ct.innerHTML = pgValidar();
+  else if (p === 'meus')          ct.innerHTML = pgRegistros(S.registros.filter(function(r){ return r.autorId === S.user.id; }));
+  else ct.innerHTML = '<div class="empty">Página não encontrada</div>';
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function getColabPts(id, mes) {
+  var pts = 100;
+  S.registros.forEach(function(r) {
+    if (r.colabId === id && r.mes === mes && r.status === 'aprovado') pts += parseFloat(r.pts)||0;
+  });
+  return Math.max(0, Math.min(200, pts));
+}
+function pb(pts) {
+  var pct = Math.min(100, Math.max(0, pts));
+  var c = pts >= 80 ? '#1db36e' : pts >= 50 ? '#e67e22' : '#e74c3c';
+  return '<span class="pb-w"><span class="pb" style="width:' + pct + '%;background:' + c + '"></span></span>';
+}
+function tagSt(s) { return '<span class="tag tag-' + s + '">' + ({pendente:'⏳ Pend.',aprovado:'✅ Aprov.',recusado:'❌ Recus.',cancelado:'🚫 Canc.'}[s]||s) + '</span>'; }
+function tagNv(tipo, nivel) { var m = tipo==='inconformidade'?INCONF:BONUS; return '<span class="tag tag-' + nivel + '">' + (m[nivel]?m[nivel].cn:nivel) + '</span>'; }
+function liderColabs(lid) { return S.colabs.filter(function(c){ return c.liderId === lid; }); }
+function supLiders(turno) { return S.users.filter(function(u){ return u.role==='lider' && u.turno===turno; }); }
+function coordSups(turno) { return S.users.filter(function(u){ return u.role==='supervisor' && u.turno===turno; }); }
+function getUser(id) { return S.users.find(function(u){ return u.id===id; }); }
+function getColab(id) { return S.colabs.find(function(c){ return c.id===id; }); }
+function lvColor(k) { return {leve:'#1db36e',medio:'#e67e22',grave:'#e74c3c',critico:'#8e0000',bom:'#1db36e',muitobom:'#1565c0',excelente:'#7c3aed',extraordinario:'#c65100'}[k]||'#888'; }
+function barChart(data) {
+  var max = Math.max.apply(null, data.map(function(d){ return d.v||0; })) || 1;
+  return '<div class="bc">' + data.map(function(d) {
+    var h = Math.max(4, Math.round((d.v||0)/max*100));
+    return '<div class="bc-col"><div class="bc-val" style="color:' + d.c + '">' + (d.v||0) + '</div>' +
+      '<div class="bc-bar" style="height:' + h + 'px;background:' + d.c + '"></div>' +
+      '<div class="bc-lbl">' + d.l + '</div></div>';
+  }).join('') + '</div>';
+}
+function rankCard(colabs, mes) {
+  var sorted = colabs.slice().map(function(c){ return {n:c.name,t:c.turno,pts:getColabPts(c.id,mes)}; })
+    .sort(function(a,b){ return b.pts-a.pts; }).slice(0,8);
+  var rows = sorted.length ? sorted.map(function(c,i) {
+    var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
+    return '<tr class="' + (i<3?'hl':'') + '"><td>' + medal + '</td><td>' + c.n + '</td>' +
+      '<td><span class="turno">' + c.t + '</span></td>' +
+      '<td><span class="' + (c.pts>=100?'pts-p':'pts-n') + '">' + c.pts + '</span></td></tr>';
+  }).join('') : '<tr><td colspan="4" class="empty">Sem dados</td></tr>';
+  return '<div class="card"><div class="card-title">🏆 Ranking — ' + mes + '</div><div class="tw"><table>' +
+    '<thead><tr><th>#</th><th>Colaborador / 员工</th><th>Turno</th><th>Pts</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></div>';
+}
+
+// ============================================================
+//  DASHBOARDS
+// ============================================================
+function dashAdmin() {
+  var mes=S.config.meAtual||'';
+  var pend=S.registros.filter(function(r){return r.status==='pendente';}).length;
+  var aprov=S.registros.filter(function(r){return r.status==='aprovado';}).length;
+  return '<div class="g5" style="margin-bottom:16px">' +
+    stat(S.users.length,'Usuários / 用户','var(--navy2)') +
+    stat(S.colabs.length,'Colaboradores / 员工','var(--green)') +
+    stat(S.registros.length,'Total registros / 总记录','var(--navy3)') +
+    stat(pend,'Pendentes / 待审批','var(--orange)',true) +
+    stat(aprov,'Aprovados / 已批准','var(--green)') +
+    '</div><div class="g2">' + rankCard(S.colabs,mes) + turnoChart(mes) + '</div>';
+}
+
+function dashGerente() {
+  var mes=S.config.meAtual||'';
+  var ap=S.registros.filter(function(r){return r.status==='aprovado'&&r.mes===mes;});
+  var avg=S.colabs.length?Math.round(S.colabs.reduce(function(s,c){return s+getColabPts(c.id,mes);},0)/S.colabs.length):100;
+  return '<div class="alert alert-info">📊 Visão Gerencial — somente visualização / 管理层视图 — 仅查看</div>' +
+    '<div class="g4" style="margin-bottom:16px">' +
+    stat(S.colabs.length,'Colaboradores / 员工总数','var(--navy2)') +
+    stat(ap.filter(function(r){return r.tipo==='inconformidade';}).length,'Inconformidades / 不合格','var(--red)',true) +
+    stat(ap.filter(function(r){return r.tipo==='bonus';}).length,'Bonificações / 奖励','var(--green)') +
+    stat(avg,'Média pontos / 平均分','var(--gold)') + '</div>' +
+    '<div class="g2">' + rankCard(S.colabs,mes) +
+    '<div><div class="card"><div class="card-title">Inconformidades / 不合格项</div>' +
+    barChart(Object.keys(INCONF).map(function(k){return{l:INCONF[k].cn,v:ap.filter(function(r){return r.tipo==='inconformidade'&&r.nivel===k;}).length,c:lvColor(k)};})) +
+    '</div><div class="card" style="margin-top:0"><div class="card-title">Bônus / 奖励</div>' +
+    barChart(Object.keys(BONUS).map(function(k){return{l:BONUS[k].cn,v:ap.filter(function(r){return r.tipo==='bonus'&&r.nivel===k;}).length,c:lvColor(k)};})) +
+    '</div></div></div>';
+}
+
+function dashLider() {
+  var u=S.user, mes=S.config.meAtual||'', equipe=liderColabs(u.id);
+  var mr=S.registros.filter(function(r){return r.autorId===u.id;});
+  var rows = equipe.length ? equipe.map(function(c){
+    var pts=getColabPts(c.id,mes);
+    return '<tr><td><b>' + c.name + '</b></td><td><span class="tag">' + (CARGO_LABELS[c.cargo]||c.cargo) + '</span></td>' +
+      '<td>' + (c.modalidade||'—') + '</td>' +
+      '<td><span class="' + (pts>=100?'pts-p':'pts-n') + '">' + pts + '</span></td><td>' + pb(pts) + '</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">Nenhum colaborador atribuído / 无员工分配</td></tr>';
+  return '<div class="g4" style="margin-bottom:16px">' +
+    stat(equipe.length,'Minha Equipe / 我的团队','var(--navy2)') +
+    stat(mr.filter(function(r){return r.mes===mes;}).length,'Registros no mês / 本月','var(--gold)') +
+    stat(mr.filter(function(r){return r.status==='pendente';}).length,'Pendentes / 待审批','var(--orange)',true) +
+    stat(mr.filter(function(r){return r.status==='aprovado';}).length,'Aprovados / 已批准','var(--green)') + '</div>' +
+    '<div class="card"><div class="card-title">Minha Equipe / 我的团队 — ' + mes + '</div><div class="tw"><table>' +
+    '<thead><tr><th>Colaborador</th><th>Cargo</th><th>Modalidade</th><th>Pts ' + mes + '</th><th>Barra</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></div>';
+}
+
+function dashSup() {
+  var u=S.user, mes=S.config.meAtual||'', lids=supLiders(u.turno||''), pend=countPending();
+  var lidRows = lids.length ? lids.map(function(l){
+    return '<tr><td><b>' + l.name + '</b></td><td>' + ((l.modalidades||[]).join(', ')||'—') + '</td><td>' + liderColabs(l.id).length + '</td></tr>';
+  }).join('') : '<tr><td colspan="3" class="empty">Nenhum líder no turno</td></tr>';
+  return '<div class="g4" style="margin-bottom:16px">' +
+    stat(lids.length,'Líderes / 领班','var(--navy2)') +
+    stat(S.colabs.length,'Colaboradores / 员工','var(--green)') +
+    stat(pend,'Pendentes validação / 待审批','var(--orange)',true) +
+    stat(S.registros.filter(function(r){return r.autorId===u.id&&r.mes===mes;}).length,'Meus registros / 我的记录','var(--gold)') + '</div>' +
+    '<div class="g2"><div class="card"><div class="card-title">Líderes — Turno ' + (u.turno||'') + '</div><div class="tw"><table>' +
+    '<thead><tr><th>Líder</th><th>Modalidades</th><th>Equipe</th></tr></thead>' +
+    '<tbody>' + lidRows + '</tbody></table></div></div>' + rankCard(S.colabs,mes) + '</div>';
+}
+
+function dashCoord() {
+  var u=S.user, mes=S.config.meAtual||'', sups=coordSups(u.turno||'');
+  return '<div class="g4" style="margin-bottom:16px">' +
+    stat(sups.length,'Supervisores / 主管','var(--navy2)') +
+    stat(S.colabs.length,'Colaboradores / 员工','var(--green)') +
+    stat(countPending(),'Pendentes / 待审批','var(--orange)',true) +
+    stat(S.registros.filter(function(r){return r.mes===mes&&r.autorTurno===u.turno;}).length,'Reg. turno / 本班记录','var(--gold)') + '</div>' +
+    '<div class="g2">' + rankCard(S.colabs,mes) + turnoChart(mes) + '</div>';
+}
+
+function stat(n,lb,accent,warn) {
+  var c = warn ? (n>0?'style="color:var(--orange)"':'') : '';
+  return '<div class="stat" style="--accent:' + accent + '"><div class="stat-num" ' + c + '>' + n + '</div><div class="stat-label">' + lb + '</div></div>';
+}
+
+function turnoChart(mes) {
+  var ap = S.registros.filter(function(r){return r.status==='aprovado'&&r.mes===mes;});
+  return '<div class="card"><div class="card-title">Registros por Turno / 按班次 — ' + mes + '</div>' +
+    barChart(TURNOS.map(function(t){return{l:t,v:ap.filter(function(r){return r.autorTurno===t;}).length,c:'#2355a0'};})) + '</div>';
+}
+
+// ============================================================
+//  PAGE: USUÁRIOS (Admin only)
+// ============================================================
+function pgUsuarios() {
+  var rows = S.users.length ? S.users.map(function(u) {
+    return '<tr><td><b>' + u.name + '</b></td>' +
+      '<td><code>' + u.login + '</code></td>' +
+      '<td><span class="tag tag-' + u.role + '">' + (ROLE_LABELS[u.role]||u.role) + '</span></td>' +
+      '<td><span class="turno">' + (u.turno||'—') + '</span></td>' +
+      '<td style="font-size:11.5px;max-width:160px">' + ((u.modalidades||[]).join(', ')||'—') + '</td>' +
+      '<td><div style="display:flex;gap:5px">' +
+        '<button class="btn btn-ghost btn-sm" onclick="openUserModal(\'' + u.id + '\')">✏️ Editar</button>' +
+        '<button class="btn btn-red btn-sm" onclick="deleteUser(\'' + u.id + '\',\'' + u.name.replace(/'/g,"\\'") + '\')">🗑️</button>' +
+      '</div></td></tr>';
+  }).join('') : '<tr><td colspan="6" class="empty"><span class="empty-ic">👤</span>Nenhum usuário / 暂无用户</td></tr>';
+  return '<div class="card">' +
+    '<div class="card-hd"><div><div class="card-title">Usuários do Sistema / 系统用户</div>' +
+    '<div class="card-sub">Somente o administrador pode gerenciar usuários / 仅管理员可操作</div></div>' +
+    '<button class="btn btn-primary" onclick="openUserModal()">➕ Novo Usuário / 新用户</button></div>' +
+    '<div class="tw"><table><thead><tr><th>Nome / 姓名</th><th>Login</th><th>Nível / 级别</th>' +
+    '<th>Turno</th><th>Modalidades / 类别</th><th>Ações / 操作</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></div>';
+}
+
+function openUserModal(id) {
+  var u = id ? S.users.find(function(x){return x.id===id;}) : null;
+  var mods = u ? (u.modalidades||[]) : [];
+  var roleOpts = Object.keys(ROLE_LABELS).map(function(k){
+    return '<option value="' + k + '"' + (u&&u.role===k?' selected':'') + '>' + ROLE_LABELS[k] + '</option>';
+  }).join('');
+  var turnoOpts = '<option value="">N/A</option>' + TURNOS.map(function(t){
+    return '<option value="' + t + '"' + (u&&u.turno===t?' selected':'') + '>' + t + '</option>';
+  }).join('');
+  var modCbs = MODS.map(function(m){
+    return '<label class="cb-item"><input type="checkbox" name="umod" value="' + m + '"' + (mods.indexOf(m)>=0?' checked':'') + '> ' + m + '</label>';
+  }).join('');
+  showModal(
+    '<div class="modal-title">' + (u?'✏️ Editar':'➕ Novo') + ' Usuário / ' + (u?'编辑':'新建') + '用户</div>' +
+    '<div class="r2">' +
+      '<div class="fg"><label>Nome completo <span class="cn">/ 姓名</span></label><input id="um_name" value="' + (u?esc(u.name):'') + '"></div>' +
+      '<div class="fg"><label>Login <span class="cn">/ 用户名</span></label><input id="um_login" value="' + (u?esc(u.login):'') + '"></div>' +
+    '</div><div class="r2">' +
+      '<div class="fg"><label>Senha' + (u?' (branco = manter)':'') + ' <span class="cn">/ 密码</span></label><input id="um_pass" type="password" placeholder="' + (u?'manter atual':'nova senha') + '"></div>' +
+      '<div class="fg"><label>Nível de acesso <span class="cn">/ 级别</span></label><select id="um_role">' + roleOpts + '</select></div>' +
+    '</div>' +
+    '<div class="fg"><label>Turno <span class="cn">/ 班次</span></label><select id="um_turno">' + turnoOpts + '</select></div>' +
+    '<div class="fg"><label>Modalidades (Líderes) <span class="cn">/ 类别（领班）</span></label><div class="cb-grid">' + modCbs + '</div></div>' +
+    '<div class="modal-ft"><button class="btn btn-ghost" onclick="closeModal()">Cancelar / 取消</button>' +
+    '<button class="btn btn-primary" onclick="saveUser(\'' + (id||'') + '\')">💾 Salvar / 保存</button></div>'
+  );
+}
+
+function saveUser(id) {
+  var name  = (document.getElementById('um_name').value||'').trim();
+  var login = (document.getElementById('um_login').value||'').trim();
+  var pass  = document.getElementById('um_pass').value||'';
+  var role  = document.getElementById('um_role').value;
+  var turno = document.getElementById('um_turno').value;
+  var mods  = Array.from(document.querySelectorAll('input[name="umod"]:checked')).map(function(x){return x.value;});
+  if (!name||!login||!role) { toast('Preencha nome, login e nível / 请填写必填项','warn'); return; }
+  api('saveUser',{callerRole:S.user.role,id:id,name:name,login:login,pass:pass,role:role,turno:turno,modalidades:mods}).then(function(res){
+    if (!res.ok) { toast(res.msg,'error'); return; }
+    toast(res.msg,'success');
+    closeModal();
+    api('getUsers',{callerRole:S.user.role}).then(function(r){ if(r.ok) S.users=r.data||[]; renderPage(); buildSidebar(); });
+  });
+}
+
+function deleteUser(id, name) {
+  if (!confirm('Excluir usuário "' + name + '"?\n删除用户 "' + name + '"?')) return;
+  api('deleteUser',{callerRole:S.user.role,id:id}).then(function(res){
+    if (!res.ok) { toast(res.msg,'error'); return; }
+    toast(res.msg,'success');
+    api('getUsers',{callerRole:S.user.role}).then(function(r){ if(r.ok) S.users=r.data||[]; renderPage(); });
+  });
+}
+
+// ============================================================
+//  PAGE: COLABORADORES
+// ============================================================
+function pgColabs() {
+  var canEdit = S.user.role==='admin'||S.user.role==='coordenador';
+  var mes = S.config.meAtual||'';
+  var rows = S.colabs.length ? S.colabs.map(function(c){
+    var pts = getColabPts(c.id,mes);
+    var lider = getUser(c.liderId);
+    return '<tr><td><b>' + c.name + '</b></td>' +
+      '<td><span class="tag" style="background:#f0f4ff;color:#2355a0">' + (CARGO_LABELS[c.cargo]||c.cargo) + '</span></td>' +
+      '<td><span class="turno">' + (c.turno||'—') + '</span></td>' +
+      '<td>' + (c.modalidade||'—') + '</td>' +
+      '<td>' + (lider?lider.name:'<span style="color:var(--text3)">Não atribuído</span>') + '</td>' +
+      '<td><span class="' + (pts>=100?'pts-p':'pts-n') + '">' + pts + '</span></td>' +
+      '<td>' + pb(pts) + '</td>' +
+      (canEdit ? '<td><div style="display:flex;gap:5px">' +
+        '<button class="btn btn-ghost btn-sm" onclick="openColabModal(\'' + c.id + '\')">✏️</button>' +
+        '<button class="btn btn-red btn-sm" onclick="deleteColab(\'' + c.id + '\',\'' + c.name.replace(/'/g,"\\'") + '\')">🗑️</button>' +
+        '</div></td>' : '') + '</tr>';
+  }).join('') : '<tr><td colspan="8" class="empty"><span class="empty-ic">👥</span>Nenhum colaborador / 暂无员工</td></tr>';
+
+  return '<div class="card"><div class="card-hd"><div>' +
+    '<div class="card-title">Colaboradores / 员工</div>' +
+    '<div class="card-sub">' + S.colabs.length + ' colaborador(es) / ' + S.colabs.length + '名员工</div></div>' +
+    (canEdit?'<button class="btn btn-primary" onclick="openColabModal()">➕ Adicionar / 添加</button>':'') + '</div>' +
+    '<div class="tw"><table><thead><tr><th>Nome / 姓名</th><th>Cargo / 职位</th><th>Turno</th>' +
+    '<th>Modalidade / 类别</th><th>Líder / 领班</th><th>Pts ' + mes + '</th><th>Barra</th>' +
+    (canEdit?'<th>Ações</th>':'') + '</tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></div>';
+}
+
+function openColabModal(id) {
+  var c = id ? S.colabs.find(function(x){return x.id===id;}) : null;
+  var liders = S.users.filter(function(u){return u.role==='lider';});
+  var cargoOpts = CARGOS.map(function(x){return '<option value="' + x + '"' + (c&&c.cargo===x?' selected':'') + '>' + CARGO_LABELS[x] + '</option>';}).join('');
+  var turnoOpts = TURNOS.map(function(t){return '<option value="' + t + '"' + (c&&c.turno===t?' selected':'') + '>' + t + '</option>';}).join('');
+  var modOpts = '<option value="">Nenhuma / 无</option>' + MODS.map(function(m){return '<option value="' + m + '"' + (c&&c.modalidade===m?' selected':'') + '>' + m + '</option>';}).join('');
+  var liderOpts = '<option value="">Sem líder / 无领班</option>' + liders.map(function(l){
+    return '<option value="' + l.id + '"' + (c&&c.liderId===l.id?' selected':'') + '>' + l.name + ' (' + (l.turno||'?') + ' — ' + ((l.modalidades||[]).join(',')||'todas') + ')</option>';
+  }).join('');
+  showModal(
+    '<div class="modal-title">' + (c?'✏️ Editar':'➕ Novo') + ' Colaborador / ' + (c?'编辑':'新建') + '员工</div>' +
+    '<div class="r2"><div class="fg"><label>Nome completo <span class="cn">/ 姓名</span></label><input id="cm_name" value="' + (c?esc(c.name):'') + '"></div>' +
+    '<div class="fg"><label>Cargo <span class="cn">/ 职位</span></label><select id="cm_cargo">' + cargoOpts + '</select></div></div>' +
+    '<div class="r2"><div class="fg"><label>Turno <span class="cn">/ 班次</span></label><select id="cm_turno">' + turnoOpts + '</select></div>' +
+    '<div class="fg"><label>Modalidade <span class="cn">/ 类别</span></label><select id="cm_mod">' + modOpts + '</select></div></div>' +
+    '<div class="fg"><label>Líder Responsável <span class="cn">/ 负责领班</span></label><select id="cm_lider">' + liderOpts + '</select></div>' +
+    '<div class="modal-ft"><button class="btn btn-ghost" onclick="closeModal()">Cancelar / 取消</button>' +
+    '<button class="btn btn-primary" onclick="saveColab(\'' + (id||'') + '\')">💾 Salvar / 保存</button></div>'
+  );
+}
+
+function saveColab(id) {
+  var name  = (document.getElementById('cm_name').value||'').trim();
+  var cargo = document.getElementById('cm_cargo').value;
+  var turno = document.getElementById('cm_turno').value;
+  var mod   = document.getElementById('cm_mod').value;
+  var lider = document.getElementById('cm_lider').value;
+  if (!name||!cargo||!turno) { toast('Preencha nome, cargo e turno','warn'); return; }
+  api('saveColab',{callerRole:S.user.role,id:id,name:name,cargo:cargo,turno:turno,modalidade:mod,liderId:lider}).then(function(res){
+    if (!res.ok) { toast(res.msg,'error'); return; }
+    toast(res.msg,'success');
+    closeModal();
+    refreshData();
+  });
+}
+
+function deleteColab(id, name) {
+  if (!confirm('Excluir "' + name + '"?\n删除 "' + name + '"?')) return;
+  api('deleteColab',{callerRole:S.user.role,id:id}).then(function(res){
+    if (!res.ok) { toast(res.msg,'error'); return; }
+    toast(res.msg,'success');
+    refreshData();
+  });
+}
+
+// ============================================================
+//  PAGE: UPLOAD EXCEL
+// ============================================================
+function pgUpload() {
+  return '<div class="card"><div class="card-title">📤 Importar Colaboradores via Excel / 导入员工</div>' +
+    '<div class="alert alert-info">Colunas obrigatórias: <b>nome</b>, <b>cargo</b> (auxiliar/focal/assistente), <b>turno</b> (T1~T4), <b>modalidade</b><br>' +
+    '<span style="color:var(--text3);font-size:11px">必须包含列：nome、cargo、turno、modalidade</span></div>' +
+    '<div class="fg" style="margin-top:12px"><label>Arquivo .xlsx / .xls</label><input type="file" id="xlsxFile" accept=".xlsx,.xls"></div>' +
+    '<div id="xlpreview"></div>' +
+    '<div style="display:flex;gap:10px;margin-top:12px">' +
+    '<button class="btn btn-primary" onclick="processXlsx()">📤 Importar / 导入</button>' +
+    '<button class="btn btn-gold" onclick="dlTemplate()">⬇️ Baixar Modelo / 下载模板</button></div></div>';
+}
+
+function processXlsx() {
+  var file = document.getElementById('xlsxFile').files[0];
+  if (!file) { toast('Selecione um arquivo','warn'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result,{type:'binary'});
+      var data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      document.getElementById('xlpreview').innerHTML = '<div class="alert alert-info">📋 ' + data.length + ' linhas lidas. Enviando... / ' + data.length + '行，上传中...</div>';
+      api('importColabs',{callerRole:S.user.role,rows:data}).then(function(res){
+        if (!res.ok) { toast(res.msg,'error'); return; }
+        toast(res.msg,'success');
+        refreshData();
+      });
+    } catch(err) { toast('Erro ao ler Excel: ' + err.message,'error'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function dlTemplate() {
+  var ws = XLSX.utils.aoa_to_sheet([
+    ['nome','cargo','turno','modalidade'],
+    ['João Silva','auxiliar','T1','Carregamento'],
+    ['Maria Lima','focal','T2','Separação'],
+    ['Carlos Souza','assistente','T1','Indução']
+  ]);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,'Colaboradores',ws);
+  XLSX.writeFile(wb,'modelo_colaboradores.xlsx');
+}
+
+// ============================================================
+//  PAGE: REGISTROS TABLE
+// ============================================================
+function pgRegistros(regs) {
+  var sorted = regs.slice().sort(function(a,b){ return (b.criadoEm||'').localeCompare(a.criadoEm||''); });
+  var rows = sorted.length ? sorted.map(function(r){
+    var c = getColab(r.colabId)||getUser(r.colabId);
+    var autor = getUser(r.autorId);
+    var ptsN = parseFloat(r.pts)||0;
+    return '<tr><td>' + (r.mes||'') + '</td>' +
+      '<td><span class="tag ' + (r.tipo==='inconformidade'?'tag-grave':'tag-bom') + '">' + (r.tipo==='inconformidade'?'Inc.':'Bônus') + '</span></td>' +
+      '<td><b>' + (c?c.name:r.colabId||'—') + '</b></td>' +
+      '<td>' + tagNv(r.tipo,r.nivel) + '</td>' +
+      '<td class="' + (ptsN>=0?'pts-p':'pts-n') + '">' + (ptsN>0?'+':'') + ptsN + '</td>' +
+      '<td style="font-size:12px">' + (autor?autor.name:'—') + '</td>' +
+      '<td>' + tagSt(r.status) + '</td>' +
+      '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="' + esc(r.motivo||'') + '">' + (r.motivo||'—') + '</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty"><span class="empty-ic">📋</span>Nenhum registro / 暂无记录</td></tr>';
+  return '<div class="card"><div class="card-hd"><div class="card-title">Registros / 记录 (' + regs.length + ')</div>' +
+    '<button class="btn btn-ghost btn-sm" onclick="refreshData()">🔄 Atualizar</button></div>' +
+    '<div class="tw"><table><thead><tr><th>Mês</th><th>Tipo</th><th>Colaborador</th><th>Nível</th><th>Pts</th><th>Autor</th><th>Status</th><th>Motivo</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></div>';
+}
+
+// ============================================================
+//  PAGE: REGISTRAR
+// ============================================================
+function pgRegistrar() {
+  var u = S.user, targets = [];
+  if (u.role==='lider') targets = liderColabs(u.id).map(function(c){return{id:c.id,lb:c.name+' ('+c.cargo+')'};});
+  else if (u.role==='supervisor') targets = supLiders(u.turno||'').map(function(l){return{id:l.id,lb:l.name+' — Líder'};});
+  else if (u.role==='coordenador') targets = coordSups(u.turno||'').map(function(s){return{id:s.id,lb:s.name+' — Supervisor'};});
+  else if (u.role==='admin') {
+    targets = S.colabs.map(function(c){return{id:c.id,lb:c.name+' ('+c.cargo+')'}; });
+    S.users.filter(function(x){return x.role!=='admin'&&x.role!=='gerente';}).forEach(function(x){targets.push({id:x.id,lb:x.name+' — '+(ROLE_LABELS[x.role]||x.role)});});
+  }
+  var tgtOpts = '<option value="">Selecionar... / 请选择...</option>' + targets.map(function(t){return '<option value="' + t.id + '">' + esc(t.lb) + '</option>';}).join('');
+  var inconfOpts = Object.keys(INCONF).map(function(k){return '<option value="' + k + '">' + INCONF[k].label + ' (' + INCONF[k].pts + 'pts)</option>';}).join('');
+  var critOpts = CRITERIOS.map(function(c){return '<option value="' + c.v + '">' + c.l + '</option>';}).join('');
+  return '<div class="card"><div class="card-title">➕ Novo Registro / 新建记录</div>' +
+    '<div class="r2"><div class="fg"><label>Tipo / 类型</label>' +
+    '<select id="reg_tipo" onchange="toggleTipo()"><option value="inconformidade">❌ Inconformidade / 不合格项</option><option value="bonus">⭐ Bonificação / 奖励</option></select></div>' +
+    '<div class="fg"><label>Para quem / 对象</label><select id="reg_colab">' + tgtOpts + '</select></div></div>' +
+    '<div class="r2"><div class="fg"><label id="nlb">Gravidade / 严重程度</label><select id="reg_nivel">' + inconfOpts + '</select></div>' +
+    '<div class="fg"><label>Mês referência / 参考月份</label><input type="month" id="reg_mes" value="' + (S.config.meAtual||'') + '"></div></div>' +
+    '<div id="bonus_sec" style="display:none"><div class="alert alert-success">💡 Critérios: assiduidade, proatividade, liderança, inovação, resultado, destaque, melhoria</div>' +
+    '<div class="fg"><label>Critério / 标准</label><select id="reg_crit">' + critOpts + '</select></div></div>' +
+    '<div class="fg"><label>Motivo detalhado / 详细原因 <span style="color:var(--red)">*</span></label>' +
+    '<textarea id="reg_motivo" rows="3" placeholder="Descreva detalhadamente... / 请详细描述..."></textarea></div>' +
+    '<div style="display:flex;gap:10px"><button class="btn btn-primary" onclick="salvarRegistro()">💾 Salvar / 保存</button>' +
+    '<button class="btn btn-ghost" onclick="navigate(\'dashboard\')">Cancelar / 取消</button></div></div>';
+}
+
+function toggleTipo() {
+  var tipo = document.getElementById('reg_tipo').value;
+  var nlb  = document.getElementById('nlb');
+  var sel  = document.getElementById('reg_nivel');
+  var bsec = document.getElementById('bonus_sec');
+  if (tipo==='inconformidade') {
+    nlb.textContent = 'Gravidade / 严重程度';
+    sel.innerHTML = Object.keys(INCONF).map(function(k){return '<option value="' + k + '">' + INCONF[k].label + ' (' + INCONF[k].pts + 'pts)</option>';}).join('');
+    bsec.style.display = 'none';
+  } else {
+    nlb.textContent = 'Nível de bônus / 奖励级别';
+    sel.innerHTML = Object.keys(BONUS).map(function(k){return '<option value="' + k + '">' + BONUS[k].label + ' (+' + BONUS[k].pts + 'pts)</option>';}).join('');
+    bsec.style.display = 'block';
+  }
+}
+
+function salvarRegistro() {
+  var tipo   = document.getElementById('reg_tipo').value;
+  var colabId= document.getElementById('reg_colab').value;
+  var nivel  = document.getElementById('reg_nivel').value;
+  var mes    = document.getElementById('reg_mes').value;
+  var motivo = (document.getElementById('reg_motivo').value||'').trim();
+  var criterio= document.getElementById('reg_crit')?document.getElementById('reg_crit').value:'';
+  if (!colabId) { toast('Selecione o colaborador / 请选择员工','warn'); return; }
+  if (!motivo)  { toast('Informe o motivo / 请填写原因','warn'); return; }
+  var map = tipo==='inconformidade'?INCONF:BONUS;
+  var pts = map[nivel]?map[nivel].pts:0;
+  var u = S.user;
+  api('saveRegistro',{tipo:tipo,colabId:colabId,nivel:nivel,mes:mes,motivo:motivo,criterio:criterio,pts:pts,autorId:u.id,autorRole:u.role,autorTurno:u.turno||''}).then(function(res){
+    if (!res.ok) { toast(res.msg,'error'); return; }
+    toast(res.msg + ' / 记录已保存，等待审批','success');
+    refreshData().then(function(){ navigate('dashboard'); });
+  });
+}
+
+// ============================================================
+//  PAGE: VALIDAR
+// ============================================================
+function pgValidar() {
+  var u = S.user, regs = [];
+  if (u.role==='supervisor') {
+    var lids = supLiders(u.turno||'').map(function(l){return l.id;});
+    regs = S.registros.filter(function(r){return r.status==='pendente'&&r.autorRole==='lider'&&lids.indexOf(r.autorId)>=0;});
+  } else if (u.role==='coordenador') {
+    regs = S.registros.filter(function(r){return r.status==='pendente'&&(r.autorRole==='supervisor'||r.autorRole==='coordenador')&&r.autorTurno===u.turno;});
+  } else if (u.role==='admin') {
+    regs = S.registros.filter(function(r){return r.status==='pendente';});
+  }
+  var rows = regs.length ? regs.map(function(r){
+    var c = getColab(r.colabId)||getUser(r.colabId);
+    var autor = getUser(r.autorId);
+    var ptsN = parseFloat(r.pts)||0;
+    return '<tr><td>' + (r.mes||'') + '</td>' +
+      '<td><span class="tag ' + (r.tipo==='inconformidade'?'tag-grave':'tag-bom') + '">' + (r.tipo==='inconformidade'?'Inc.':'Bônus') + '</span></td>' +
+      '<td><b>' + (c?c.name:r.colabId||'—') + '</b></td>' +
+      '<td>' + tagNv(r.tipo,r.nivel) + '</td>' +
+      '<td class="' + (ptsN>=0?'pts-p':'pts-n') + '">' + (ptsN>0?'+':'') + ptsN + '</td>' +
+      '<td style="font-size:12px">' + (autor?autor.name:'—') + '</td>' +
+      '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="' + esc(r.motivo||'') + '">' + (r.motivo||'—') + '</td>' +
+      '<td><div style="display:flex;gap:4px">' +
+        '<button class="btn btn-green btn-sm" onclick="validar(\'' + r.id + '\',\'aprovado\')" title="Aprovar">✅</button>' +
+        '<button class="btn btn-red btn-sm" onclick="validar(\'' + r.id + '\',\'recusado\')" title="Recusar">❌</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="validar(\'' + r.id + '\',\'cancelado\')" title="Cancelar">🚫</button>' +
+      '</div></td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty"><span class="empty-ic">✅</span>Nenhum pendente / 无待审批</td></tr>';
+  return '<div class="card"><div class="card-hd"><div><div class="card-title">✅ Validar Registros / 审批记录</div>' +
+    '<div class="card-sub">' + regs.length + ' registro(s) pendente(s) / ' + regs.length + '条待审批</div></div>' +
+    '<button class="btn btn-ghost btn-sm" onclick="refreshData()">🔄</button></div>' +
+    '<div class="tw"><table><thead><tr><th>Mês</th><th>Tipo</th><th>Colaborador</th><th>Nível</th><th>Pts</th><th>Autor</th><th>Motivo</th><th>Ações / 操作</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></div>';
+}
+
+function validar(id, status) {
+  api('validarRegistro',{id:id,status:status,callerRole:S.user.role,callerId:S.user.id}).then(function(res){
+    if (!res.ok) { toast(res.msg,'error'); return; }
+    toast({aprovado:'✅ Aprovado / 已批准',recusado:'❌ Recusado / 已拒绝',cancelado:'🚫 Cancelado / 已取消'}[status],'success');
+    refreshData();
+  });
+}
+
+// ============================================================
+//  PAGE: RELATÓRIOS
+// ============================================================
+function pgRelatorios() {
+  var mes = S.config.meAtual||'';
+  var sorted = S.colabs.slice().map(function(c){return {n:c.name,t:c.turno,pts:getColabPts(c.id,mes)};}).sort(function(a,b){return b.pts-a.pts;});
+  var ap = S.registros.filter(function(r){return r.status==='aprovado'&&r.mes===mes;});
+  var rows = sorted.map(function(c,i){
+    var medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
+    return '<tr class="' + (i<3?'hl':'') + '"><td>' + medal + '</td><td>' + c.n + '</td>' +
+      '<td><span class="turno">' + c.t + '</span></td>' +
+      '<td><span class="' + (c.pts>=100?'pts-p':'pts-n') + '">' + c.pts + '</span></td>' +
+      '<td>' + pb(c.pts) + '</td></tr>';
+  }).join('');
+  return '<div class="g2">' +
+    '<div class="card"><div class="card-title">🏆 Ranking — ' + mes + '</div><div class="tw"><table>' +
+    '<thead><tr><th>#</th><th>Colaborador</th><th>Turno</th><th>Pts</th><th>Barra</th></tr></thead>' +
+    '<tbody>' + (rows||'<tr><td colspan="5" class="empty">Sem dados</td></tr>') + '</tbody></table></div></div>' +
+    '<div><div class="card"><div class="card-title">Inconformidades / 不合格项 — ' + mes + '</div>' +
+    barChart(Object.keys(INCONF).map(function(k){return{l:INCONF[k].cn,v:ap.filter(function(r){return r.tipo==='inconformidade'&&r.nivel===k;}).length,c:lvColor(k)};})) + '</div>' +
+    '<div class="card" style="margin-top:0"><div class="card-title">Bônus por nível / 奖励级别</div>' +
+    barChart(Object.keys(BONUS).map(function(k){return{l:BONUS[k].cn,v:ap.filter(function(r){return r.tipo==='bonus'&&r.nivel===k;}).length,c:lvColor(k)};})) + '</div>' +
+    '<button class="btn btn-gold" onclick="exportExcel()" style="margin-top:4px">📊 Exportar Excel / 导出</button></div></div>';
+}
+
+function exportExcel() {
+  var mes = S.config.meAtual||'';
+  var rows = S.colabs.map(function(c){
+    var lider = getUser(c.liderId);
+    return {Nome:c.name,Cargo:c.cargo,Turno:c.turno,Modalidade:c.modalidade,Lider:lider?lider.name:'',Pontos:getColabPts(c.id,mes),Mes:mes};
+  });
+  var ws = XLSX.utils.json_to_sheet(rows);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,'Avaliacao',ws);
+  XLSX.writeFile(wb,'avaliacao_' + mes + '.xlsx');
+  toast('Excel exportado / 已导出','success');
+}
+
+// ============================================================
+//  PAGE: CONFIG
+// ============================================================
+function pgConfig() {
+  var urlOk = GS_URL !== 'COLE_AQUI_A_URL_DO_SEU_WEB_APP';
+  return '<div class="card"><div class="card-title">⚙️ Configurações / 配置</div>' +
+    '<div class="fg"><label>Mês de referência atual / 当前参考月份</label><input type="month" id="cfg_mes" value="' + (S.config.meAtual||'') + '"></div>' +
+    '<button class="btn btn-primary" onclick="saveConfig()">💾 Salvar / 保存</button></div>' +
+    '<div class="card"><div class="card-title">🔗 Apps Script</div>' +
+    (urlOk ? '<div class="alert alert-success">✅ URL configurada / URL已配置</div>' : '<div class="alert alert-warn">⚠️ Configure a variável GS_URL no topo do arquivo HTML!</div>') +
+    '<div class="fg" style="margin-top:8px"><label>URL atual / 当前URL</label><input value="' + esc(GS_URL) + '" readonly></div></div>' +
+    '<div class="card"><div class="card-title">📊 Exportar / 导出</div>' +
+    '<button class="btn btn-gold" onclick="exportExcel()">📊 Exportar Relatório Excel</button></div>';
+}
+
+function saveConfig() {
+  var mes = (document.getElementById('cfg_mes')||{}).value;
+  if (!mes) { toast('Informe o mês','warn'); return; }
+  api('saveConfig',{callerRole:S.user.role,configs:{meAtual:mes}}).then(function(res){
+    if (!res.ok) { toast(res.msg,'error'); return; }
+    S.config.meAtual = mes;
+    document.getElementById('tb-month').textContent = '📅 ' + mes;
+    toast('Configuração salva / 配置已保存','success');
+    refreshData();
+  });
+}
+
+// ============================================================
+//  MODAL
+// ============================================================
+function showModal(html, lg) {
+  document.getElementById('mod-container').innerHTML =
+    '<div class="mo" onclick="closeOnBg(event)"><div class="modal' + (lg?' modal-lg':'') + '">' +
+    '<button class="modal-x" onclick="closeModal()">×</button>' + html + '</div></div>';
+}
+function closeModal() { document.getElementById('mod-container').innerHTML = ''; }
+function closeOnBg(e) { if (e.target.classList.contains('mo')) closeModal(); }
+
+// ============================================================
+//  UTIL
+// ============================================================
+function esc(s) { return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && document.getElementById('login').style.display !== 'none') doLogin();
+});
+</script>
+</body>
+</html>
