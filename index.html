@@ -177,6 +177,58 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:11.5px}
 
 @media(max-width:900px){.g4,.g5{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.g4,.g5,.g3,.g2{grid-template-columns:1fr}#sidebar{width:54px;min-width:54px}}
+
+/* ── PDF FEEDBACK PREVIEW ── */
+.pdf-preview-wrap{background:#6b7280;padding:24px;border-radius:var(--r2);overflow-y:auto;max-height:72vh}
+.pdf-page{background:#fff;width:100%;max-width:760px;margin:0 auto;padding:48px 52px;box-shadow:0 8px 32px rgba(0,0,0,.3);font-family:'Sora',Arial,sans-serif;position:relative;min-height:900px}
+.pdf-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:3px solid #0f2447}
+.pdf-logo-area{display:flex;align-items:center;gap:10px}
+.pdf-logo-box{width:40px;height:40px;background:linear-gradient(135deg,#e8a020,#f5c842);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.pdf-logo-text{font-size:16px;font-weight:700;color:#0f2447}
+.pdf-logo-sub{font-size:10px;color:#8898b8;margin-top:1px}
+.pdf-meta{text-align:right;font-size:11px;color:#556080}
+.pdf-meta b{font-size:12px;color:#0f2447;display:block}
+.pdf-hero{background:linear-gradient(135deg,#0f2447,#1a3a6b);border-radius:12px;padding:20px 24px;margin-bottom:22px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.pdf-hero-name{font-size:19px;font-weight:700;margin-bottom:3px}
+.pdf-hero-info{font-size:11.5px;opacity:.75}
+.pdf-hero-pts{text-align:right}
+.pdf-hero-pts-num{font-size:36px;font-weight:700;line-height:1}
+.pdf-hero-pts-label{font-size:10px;opacity:.7;margin-top:2px}
+.pdf-section-title{font-size:12.5px;font-weight:700;color:#0f2447;margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid #e8ecf5}
+.pdf-item{border:1px solid #e8ecf5;border-radius:8px;padding:12px 14px;margin-bottom:9px}
+.pdf-item-inconf{border-left:4px solid #e74c3c;background:#fdf8f8}
+.pdf-item-bonus{border-left:4px solid #1db36e;background:#f6fef9}
+.pdf-item-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+.pdf-item-title{font-size:12px;font-weight:700;color:#0f2447}
+.pdf-item-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.pdf-item-motivo{font-size:11px;color:#556080;line-height:1.5;margin-top:4px}
+.pdf-item-footer{display:flex;justify-content:space-between;margin-top:7px;font-size:10px;color:#8898b8;align-items:center}
+.pdf-item-pts{font-size:13px;font-weight:700}
+.pdf-pts-pos{color:#1db36e}
+.pdf-pts-neg{color:#e74c3c}
+.pdf-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.pdf-summary-box{background:#f5f7fc;border-radius:8px;padding:10px;text-align:center}
+.pdf-summary-num{font-size:20px;font-weight:700;color:#0f2447}
+.pdf-summary-label{font-size:9.5px;color:#556080;margin-top:2px}
+.pdf-bar-track{background:#e8ecf5;border-radius:20px;height:9px;margin:8px 0 3px;overflow:hidden}
+.pdf-bar-fill{height:9px;border-radius:20px}
+.pdf-sign-area{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:32px;padding-top:18px;border-top:1px solid #e8ecf5}
+.pdf-sign-box{text-align:center}
+.pdf-sign-line{border-bottom:1px solid #0f2447;margin:36px 10px 7px}
+.pdf-sign-name{font-size:11px;color:#0f2447;font-weight:600}
+.pdf-sign-role{font-size:10px;color:#8898b8}
+.pdf-footer-doc{text-align:center;font-size:9.5px;color:#c0c8d8;margin-top:24px;padding-top:12px;border-top:1px solid #e8ecf5}
+.pdf-empty-sec{text-align:center;padding:18px;color:#c0c8d8;font-size:11.5px;border:1px dashed #e8ecf5;border-radius:8px;margin-bottom:10px}
+.pdf-filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.pdf-filter-bar .fg{margin:0;flex:1;min-width:150px}
+#print-frame{display:none}
+@media print{
+  body,html{overflow:visible!important;background:#fff!important;height:auto!important}
+  #app{display:none!important}
+  #print-frame{display:block!important;position:fixed;inset:0;z-index:99999;background:#fff;overflow:auto;padding:0}
+  #print-frame .pdf-preview-wrap{background:none!important;padding:0!important}
+  #print-frame .pdf-page{box-shadow:none!important;width:100%!important;max-width:none!important;min-height:auto!important;padding:32px 40px!important}
+}
 </style>
 </head>
 <body>
@@ -231,6 +283,7 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:11.5px}
 
 <div id="mod-container"></div>
 <div id="toast-container"></div>
+<div id="print-frame"></div>
 
 <script>
 'use strict';
@@ -240,7 +293,7 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:11.5px}
 //  Após publicar: Implantar → Nova implantação → App da Web
 //  Executar como: EU | Acesso: QUALQUER PESSOA
 // ============================================================
-var GS_URL = 'https://script.google.com/macros/s/AKfycbzc8pTaslC1AvPwTD1TIF5nNNSsXEHdxG1kiqp2wHkjp6AlTdjIxLrQ9HrJAz0gGkYGow/exec';
+var GS_URL = 'COLE_AQUI_A_URL_DO_SEU_WEB_APP';
 // Exemplo: 'https://script.google.com/macros/s/AKfycbXXXXX/exec'
 // ============================================================
 
@@ -372,6 +425,7 @@ var NAV = {
     {sec:'Operação / 操作'},
     {id:'registros',ic:'📋',lb:'Todos Registros / 记录'},
     {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'},
+    {id:'feedback',ic:'🖨️',lb:'Feedback PDF / 反馈'},
     {sec:'Sistema / 系统'},
     {id:'config',ic:'⚙️',lb:'Configurações / 配置'}
   ],
@@ -381,18 +435,21 @@ var NAV = {
     {id:'registrar',ic:'➕',lb:'Novo Registro / 新建'},
     {id:'validar',ic:'✅',lb:'Validar / 审批',badge:true},
     {id:'colaboradores',ic:'👥',lb:'Colaboradores / 员工'},
-    {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'}
+    {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'},
+    {id:'feedback',ic:'🖨️',lb:'Feedback PDF / 反馈'}
   ],
   supervisor:[
     {id:'dashboard',ic:'🏠',lb:'Dashboard / 仪表盘'},
     {id:'registrar',ic:'➕',lb:'Novo Registro / 新建'},
     {id:'validar',ic:'✅',lb:'Validar / 审批',badge:true},
-    {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'}
+    {id:'relatorios',ic:'📊',lb:'Relatórios / 报告'},
+    {id:'feedback',ic:'🖨️',lb:'Feedback PDF / 反馈'}
   ],
   lider:[
     {id:'dashboard',ic:'🏠',lb:'Dashboard / 仪表盘'},
     {id:'registrar',ic:'➕',lb:'Novo Registro / 新建'},
-    {id:'meus',ic:'📋',lb:'Meus Registros / 我的记录'}
+    {id:'meus',ic:'📋',lb:'Meus Registros / 我的记录'},
+    {id:'feedback',ic:'🖨️',lb:'Feedback PDF / 反馈'}
   ]
 };
 
@@ -435,7 +492,7 @@ var PAGE_TITLES = {
   dashboard:'Dashboard', usuarios:'Usuários / 用户', colaboradores:'Colaboradores / 员工',
   upload:'Importar Excel / 导入', registros:'Todos Registros / 记录', relatorios:'Relatórios / 报告',
   config:'Configurações / 配置', registrar:'Novo Registro / 新建记录', validar:'Validar / 审批',
-  meus:'Meus Registros / 我的记录'
+  meus:'Meus Registros / 我的记录', feedback:'Feedback PDF / 反馈打印'
 };
 
 function navigate(page) {
@@ -466,6 +523,7 @@ function renderPage() {
   else if (p === 'registrar')     ct.innerHTML = pgRegistrar();
   else if (p === 'validar')       ct.innerHTML = pgValidar();
   else if (p === 'meus')          ct.innerHTML = pgRegistros(S.registros.filter(function(r){ return r.autorId === S.user.id; }));
+  else if (p === 'feedback')      ct.innerHTML = pgFeedback();
   else ct.innerHTML = '<div class="empty">Página não encontrada</div>';
 }
 
@@ -829,31 +887,110 @@ function pgRegistros(regs) {
 
 // ============================================================
 //  PAGE: REGISTRAR
+//  Hierarquia de targets:
+//  Líder       → seus colaboradores (auxiliar/focal/assistente)
+//  Supervisor  → líderes do turno + colaboradores dos líderes do turno
+//  Coordenador → supervisores do turno + líderes do turno + colaboradores do turno
+//  Admin       → todos
 // ============================================================
-function pgRegistrar() {
-  var u = S.user, targets = [];
-  if (u.role==='lider') targets = liderColabs(u.id).map(function(c){return{id:c.id,lb:c.name+' ('+c.cargo+')'};});
-  else if (u.role==='supervisor') targets = supLiders(u.turno||'').map(function(l){return{id:l.id,lb:l.name+' — Líder'};});
-  else if (u.role==='coordenador') targets = coordSups(u.turno||'').map(function(s){return{id:s.id,lb:s.name+' — Supervisor'};});
-  else if (u.role==='admin') {
-    targets = S.colabs.map(function(c){return{id:c.id,lb:c.name+' ('+c.cargo+')'}; });
-    S.users.filter(function(x){return x.role!=='admin'&&x.role!=='gerente';}).forEach(function(x){targets.push({id:x.id,lb:x.name+' — '+(ROLE_LABELS[x.role]||x.role)});});
+function buildTargets() {
+  var u = S.user;
+  var targets = [];
+
+  if (u.role === 'lider') {
+    // Apenas seus colaboradores
+    liderColabs(u.id).forEach(function(c) {
+      targets.push({ id: c.id, lb: c.name + ' — ' + (CARGO_LABELS[c.cargo]||c.cargo), grp: 'Colaboradores / 员工' });
+    });
+
+  } else if (u.role === 'supervisor') {
+    // 1) Líderes do turno
+    supLiders(u.turno||'').forEach(function(l) {
+      targets.push({ id: l.id, lb: l.name, grp: 'Líderes / 领班' });
+    });
+    // 2) Colaboradores dos líderes do turno
+    S.colabs.filter(function(c) {
+      var lids = supLiders(u.turno||'').map(function(l){ return l.id; });
+      return lids.indexOf(c.liderId) >= 0;
+    }).forEach(function(c) {
+      targets.push({ id: c.id, lb: c.name + ' — ' + (CARGO_LABELS[c.cargo]||c.cargo), grp: 'Colaboradores / 员工' });
+    });
+
+  } else if (u.role === 'coordenador') {
+    // 1) Supervisores do turno
+    coordSups(u.turno||'').forEach(function(s) {
+      targets.push({ id: s.id, lb: s.name, grp: 'Supervisores / 主管' });
+    });
+    // 2) Líderes do turno
+    S.users.filter(function(x){ return x.role==='lider' && x.turno===u.turno; }).forEach(function(l) {
+      targets.push({ id: l.id, lb: l.name, grp: 'Líderes / 领班' });
+    });
+    // 3) Colaboradores do turno
+    S.colabs.filter(function(c){ return c.turno===u.turno; }).forEach(function(c) {
+      targets.push({ id: c.id, lb: c.name + ' — ' + (CARGO_LABELS[c.cargo]||c.cargo), grp: 'Colaboradores / 员工' });
+    });
+
+  } else if (u.role === 'admin') {
+    // Todos os níveis exceto admin e gerente
+    ['supervisor','coordenador','lider'].forEach(function(r) {
+      S.users.filter(function(x){ return x.role===r; }).forEach(function(x) {
+        targets.push({ id: x.id, lb: x.name, grp: ROLE_LABELS[r] });
+      });
+    });
+    S.colabs.forEach(function(c) {
+      targets.push({ id: c.id, lb: c.name + ' — ' + (CARGO_LABELS[c.cargo]||c.cargo), grp: 'Colaboradores / 员工' });
+    });
   }
-  var tgtOpts = '<option value="">Selecionar... / 请选择...</option>' + targets.map(function(t){return '<option value="' + t.id + '">' + esc(t.lb) + '</option>';}).join('');
-  var inconfOpts = Object.keys(INCONF).map(function(k){return '<option value="' + k + '">' + INCONF[k].label + ' (' + INCONF[k].pts + 'pts)</option>';}).join('');
-  var critOpts = CRITERIOS.map(function(c){return '<option value="' + c.v + '">' + c.l + '</option>';}).join('');
+  return targets;
+}
+
+function buildTargetOpts(targets) {
+  // Agrupa por grp com <optgroup>
+  var groups = {};
+  var order  = [];
+  targets.forEach(function(t) {
+    if (!groups[t.grp]) { groups[t.grp] = []; order.push(t.grp); }
+    groups[t.grp].push(t);
+  });
+  var html = '<option value="">Selecionar... / 请选择...</option>';
+  order.forEach(function(grp) {
+    html += '<optgroup label="' + esc(grp) + '">';
+    groups[grp].forEach(function(t) {
+      html += '<option value="' + t.id + '">' + esc(t.lb) + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function pgRegistrar() {
+  var targets   = buildTargets();
+  var tgtOpts   = buildTargetOpts(targets);
+  var inconfOpts= Object.keys(INCONF).map(function(k){ return '<option value="' + k + '">' + INCONF[k].label + ' (' + INCONF[k].pts + 'pts)</option>'; }).join('');
+  var critOpts  = CRITERIOS.map(function(c){ return '<option value="' + c.v + '">' + c.l + '</option>'; }).join('');
+
   return '<div class="card"><div class="card-title">➕ Novo Registro / 新建记录</div>' +
     '<div class="r2"><div class="fg"><label>Tipo / 类型</label>' +
-    '<select id="reg_tipo" onchange="toggleTipo()"><option value="inconformidade">❌ Inconformidade / 不合格项</option><option value="bonus">⭐ Bonificação / 奖励</option></select></div>' +
+    '<select id="reg_tipo" onchange="toggleTipo()">' +
+      '<option value="inconformidade">❌ Inconformidade / 不合格项</option>' +
+      '<option value="bonus">⭐ Bonificação / 奖励</option>' +
+    '</select></div>' +
     '<div class="fg"><label>Para quem / 对象</label><select id="reg_colab">' + tgtOpts + '</select></div></div>' +
-    '<div class="r2"><div class="fg"><label id="nlb">Gravidade / 严重程度</label><select id="reg_nivel">' + inconfOpts + '</select></div>' +
-    '<div class="fg"><label>Mês referência / 参考月份</label><input type="month" id="reg_mes" value="' + (S.config.meAtual||'') + '"></div></div>' +
-    '<div id="bonus_sec" style="display:none"><div class="alert alert-success">💡 Critérios: assiduidade, proatividade, liderança, inovação, resultado, destaque, melhoria</div>' +
-    '<div class="fg"><label>Critério / 标准</label><select id="reg_crit">' + critOpts + '</select></div></div>' +
+    '<div class="r2"><div class="fg"><label id="nlb">Gravidade / 严重程度</label>' +
+      '<select id="reg_nivel">' + inconfOpts + '</select></div>' +
+    '<div class="fg"><label>Mês referência / 参考月份</label>' +
+      '<input type="month" id="reg_mes" value="' + (S.config.meAtual||'') + '"></div></div>' +
+    '<div id="bonus_sec" style="display:none">' +
+      '<div class="alert alert-success">💡 <b>Critérios de bônus / 奖励标准:</b><br>' +
+      'Assiduidade, Proatividade, Liderança, Inovação, Resultado, Destaque, Melhoria sugerida</div>' +
+      '<div class="fg"><label>Critério / 标准</label><select id="reg_crit">' + critOpts + '</select></div>' +
+    '</div>' +
     '<div class="fg"><label>Motivo detalhado / 详细原因 <span style="color:var(--red)">*</span></label>' +
-    '<textarea id="reg_motivo" rows="3" placeholder="Descreva detalhadamente... / 请详细描述..."></textarea></div>' +
-    '<div style="display:flex;gap:10px"><button class="btn btn-primary" onclick="salvarRegistro()">💾 Salvar / 保存</button>' +
-    '<button class="btn btn-ghost" onclick="navigate(\'dashboard\')">Cancelar / 取消</button></div></div>';
+      '<textarea id="reg_motivo" rows="3" placeholder="Descreva o motivo detalhadamente... / 请详细描述原因..."></textarea></div>' +
+    '<div style="display:flex;gap:10px">' +
+      '<button class="btn btn-primary" onclick="salvarRegistro()">💾 Salvar / 保存</button>' +
+      '<button class="btn btn-ghost" onclick="navigate(\'dashboard\')">Cancelar / 取消</button>' +
+    '</div></div>';
 }
 
 function toggleTipo() {
@@ -1002,8 +1139,248 @@ function saveConfig() {
 }
 
 // ============================================================
-//  MODAL
+//  PAGE: FEEDBACK PDF
 // ============================================================
+function pgFeedback() {
+  // Construir lista de pessoas disponíveis para gerar feedback
+  var u = S.user;
+  var people = [];
+
+  if (u.role === 'lider') {
+    liderColabs(u.id).forEach(function(c){ people.push({id:c.id,name:c.name,role:'colab',cargo:c.cargo,turno:c.turno}); });
+  } else if (u.role === 'supervisor') {
+    supLiders(u.turno||'').forEach(function(l){ people.push({id:l.id,name:l.name,role:'lider',cargo:'lider',turno:l.turno}); });
+    S.colabs.filter(function(c){ var lids=supLiders(u.turno||'').map(function(l){return l.id;}); return lids.indexOf(c.liderId)>=0; })
+      .forEach(function(c){ people.push({id:c.id,name:c.name,role:'colab',cargo:c.cargo,turno:c.turno}); });
+  } else if (u.role === 'coordenador') {
+    coordSups(u.turno||'').forEach(function(s){ people.push({id:s.id,name:s.name,role:'supervisor',cargo:'supervisor',turno:s.turno}); });
+    S.users.filter(function(x){ return x.role==='lider'&&x.turno===u.turno; }).forEach(function(l){ people.push({id:l.id,name:l.name,role:'lider',cargo:'lider',turno:l.turno}); });
+    S.colabs.filter(function(c){ return c.turno===u.turno; }).forEach(function(c){ people.push({id:c.id,name:c.name,role:'colab',cargo:c.cargo,turno:c.turno}); });
+  } else if (u.role === 'admin') {
+    S.users.filter(function(x){ return x.role!=='admin'&&x.role!=='gerente'; }).forEach(function(x){ people.push({id:x.id,name:x.name,role:x.role,cargo:x.role,turno:x.turno}); });
+    S.colabs.forEach(function(c){ people.push({id:c.id,name:c.name,role:'colab',cargo:c.cargo,turno:c.turno}); });
+  }
+
+  var pessoaOpts = '<option value="">Selecionar pessoa / 请选择人员...</option>' +
+    people.map(function(p){ return '<option value="' + p.id + '">' + esc(p.name) + ' — ' + esc(p.cargo) + ' ' + (p.turno?'('+p.turno+')':'') + '</option>'; }).join('');
+
+  var mesAtual = S.config.meAtual || '';
+  var meses = [];
+  var regsAll = S.registros;
+  regsAll.forEach(function(r){ if(r.mes && meses.indexOf(r.mes)<0) meses.push(r.mes); });
+  meses.sort().reverse();
+  if (meses.indexOf(mesAtual)<0 && mesAtual) meses.unshift(mesAtual);
+  var mesOpts = meses.map(function(m){ return '<option value="' + m + '"' + (m===mesAtual?' selected':'') + '>' + m + '</option>'; }).join('');
+
+  return '<div class="card"><div class="card-hd">' +
+    '<div><div class="card-title">🖨️ Gerar Feedback PDF / 生成反馈PDF</div>' +
+    '<div class="card-sub">Pré-visualização e impressão de inconformidades e bonificações / 预览并打印不合格项和奖励</div></div>' +
+    '</div>' +
+    '<div class="pdf-filter-bar">' +
+      '<div class="fg"><label>Pessoa / 人员</label><select id="fb_pessoa" onchange="updateFbPreview()">' + pessoaOpts + '</select></div>' +
+      '<div class="fg"><label>Mês / 月份</label><select id="fb_mes" onchange="updateFbPreview()">' + mesOpts + '</select></div>' +
+      '<div class="fg"><label>Tipo / 类型</label>' +
+        '<select id="fb_tipo" onchange="updateFbPreview()">' +
+          '<option value="todos">Todos / 全部</option>' +
+          '<option value="inconformidade">Inconformidades / 不合格项</option>' +
+          '<option value="bonus">Bonificações / 奖励</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="fg"><label>Status</label>' +
+        '<select id="fb_status" onchange="updateFbPreview()">' +
+          '<option value="todos">Todos / 全部</option>' +
+          '<option value="aprovado">Aprovados / 已批准</option>' +
+          '<option value="pendente">Pendentes / 待审批</option>' +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:10px;margin-bottom:16px">' +
+      '<button class="btn btn-primary" onclick="updateFbPreview()">👁️ Pré-visualizar / 预览</button>' +
+      '<button class="btn btn-gold" onclick="imprimirFeedback()">🖨️ Imprimir / 打印</button>' +
+    '</div>' +
+    '<div id="fb-preview-area"><div class="empty"><span class="empty-ic">🖨️</span>Selecione uma pessoa e mês para gerar o feedback / 选择人员和月份生成反馈</div></div>' +
+  '</div>';
+}
+
+function getFbPerson(id) {
+  var c = S.colabs.find(function(x){ return x.id===id; });
+  if (c) return { name:c.name, cargo:CARGO_LABELS[c.cargo]||c.cargo, turno:c.turno, lider:getUser(c.liderId), isUser:false };
+  var u = S.users.find(function(x){ return x.id===id; });
+  if (u) return { name:u.name, cargo:ROLE_LABELS[u.role]||u.role, turno:u.turno, lider:null, isUser:true };
+  return null;
+}
+
+function updateFbPreview() {
+  var pessoaId = (document.getElementById('fb_pessoa')||{}).value;
+  var mes      = (document.getElementById('fb_mes')||{}).value;
+  var tipo     = (document.getElementById('fb_tipo')||{}).value||'todos';
+  var status   = (document.getElementById('fb_status')||{}).value||'todos';
+  var area     = document.getElementById('fb-preview-area');
+  if (!pessoaId || !mes) {
+    area.innerHTML = '<div class="empty"><span class="empty-ic">🖨️</span>Selecione uma pessoa e mês / 请选择人员和月份</div>';
+    return;
+  }
+  area.innerHTML = '<div class="loading-row"><span class="spin"></span> Gerando pré-visualização... / 生成预览中...</div>';
+  setTimeout(function() {
+    var html = buildFeedbackHTML(pessoaId, mes, tipo, status);
+    area.innerHTML = '<div class="pdf-preview-wrap">' + html + '</div>';
+  }, 80);
+}
+
+function buildFeedbackHTML(pessoaId, mes, tipo, status) {
+  var person = getFbPerson(pessoaId);
+  if (!person) return '<div class="empty">Pessoa não encontrada</div>';
+
+  var autor = S.user;
+  var pts   = getColabPts(pessoaId, mes);
+
+  // Filtrar registros
+  var regs = S.registros.filter(function(r) {
+    if (r.colabId !== pessoaId) return false;
+    if (r.mes !== mes) return false;
+    if (tipo !== 'todos' && r.tipo !== tipo) return false;
+    if (status !== 'todos' && r.status !== status) return false;
+    return true;
+  });
+
+  var incs  = regs.filter(function(r){ return r.tipo==='inconformidade'; });
+  var bonus = regs.filter(function(r){ return r.tipo==='bonus'; });
+  var totalInc   = incs.reduce(function(s,r){ return s+(parseFloat(r.pts)||0); }, 0);
+  var totalBonus = bonus.reduce(function(s,r){ return s+(parseFloat(r.pts)||0); }, 0);
+  var hoje  = new Date().toLocaleDateString('pt-BR');
+
+  // Cor da barra de pts
+  var barColor = pts>=80?'#1db36e':pts>=50?'#e67e22':'#e74c3c';
+  var pct      = Math.min(100, Math.max(0, pts));
+
+  var badgeClass = {
+    leve:    'pdf-item-badge-inconf-leve',
+    medio:   'pdf-item-badge-inconf-medio',
+    grave:   'pdf-item-badge-inconf-grave',
+    critico: 'pdf-item-badge-inconf-critico',
+    bom:     'pdf-item-badge-bonus-bom',
+    muitobom:'pdf-item-badge-bonus-muitobom',
+    excelente:'pdf-item-badge-bonus-excelente',
+    extraordinario:'pdf-item-badge-bonus-extraordinario'
+  };
+
+  function renderItems(list) {
+    if (!list.length) return '<div class="pdf-empty-sec">Nenhum registro nesta categoria / 此类别无记录</div>';
+    return list.map(function(r) {
+      var map   = r.tipo==='inconformidade'?INCONF:BONUS;
+      var lvl   = map[r.nivel]||{label:r.nivel,cn:r.nivel,pts:0};
+      var ptsN  = parseFloat(r.pts)||0;
+      var regAutor = getUser(r.autorId);
+      var crit  = r.criterio ? ' • ' + r.criterio : '';
+      return '<div class="pdf-item pdf-item-' + r.tipo + '">' +
+        '<div class="pdf-item-header">' +
+          '<div class="pdf-item-title">' + (r.tipo==='inconformidade'?'❌ Inconformidade':'⭐ Bonificação') + crit + '</div>' +
+          '<span class="pdf-item-badge ' + (badgeClass[r.nivel]||'') + '">' + lvl.label + '</span>' +
+        '</div>' +
+        '<div class="pdf-item-motivo">' + esc(r.motivo||'') + '</div>' +
+        '<div class="pdf-item-footer">' +
+          '<span>Registrado por: ' + (regAutor?esc(regAutor.name):'—') + ' &nbsp;|&nbsp; Status: ' + r.status + '</span>' +
+          '<span class="pdf-item-pts ' + (ptsN>=0?'pdf-pts-pos':'pdf-pts-neg') + '">' + (ptsN>0?'+':'') + ptsN + ' pts</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  var html =
+    '<div class="pdf-page" id="pdf-content">' +
+      // HEADER
+      '<div class="pdf-header">' +
+        '<div class="pdf-logo-area">' +
+          '<div class="pdf-logo-box">⭐</div>' +
+          '<div><div class="pdf-logo-text">AvaliaGO</div><div class="pdf-logo-sub">Sistema de Avaliação / 评估系统</div></div>' +
+        '</div>' +
+        '<div class="pdf-meta">' +
+          '<b>Relatório de Feedback / 反馈报告</b>' +
+          'Mês / 月份: ' + mes + '<br>' +
+          'Emitido em / 发布日期: ' + hoje + '<br>' +
+          'Por / 由: ' + esc(autor.name) +
+        '</div>' +
+      '</div>' +
+
+      // HERO — colaborador
+      '<div class="pdf-hero">' +
+        '<div>' +
+          '<div class="pdf-hero-name">' + esc(person.name) + '</div>' +
+          '<div class="pdf-hero-info">' + esc(person.cargo) + (person.turno?' &nbsp;|&nbsp; Turno ' + esc(person.turno):'') +
+            (person.lider?' &nbsp;|&nbsp; Líder: ' + esc(person.lider.name):'') + '</div>' +
+        '</div>' +
+        '<div class="pdf-hero-pts">' +
+          '<div class="pdf-hero-pts-num">' + pts + '</div>' +
+          '<div class="pdf-hero-pts-label">pontos / 分数</div>' +
+        '</div>' +
+      '</div>' +
+
+      // BARRA DE PONTOS
+      '<div style="margin-bottom:18px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:11px;color:#556080;margin-bottom:4px">' +
+          '<span>Pontuação do mês / 本月得分</span>' +
+          '<span style="font-weight:700;color:' + barColor + '">' + pts + '/100 pts</span>' +
+        '</div>' +
+        '<div class="pdf-bar-track"><div class="pdf-bar-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>' +
+      '</div>' +
+
+      // RESUMO
+      '<div class="pdf-summary-grid">' +
+        '<div class="pdf-summary-box"><div class="pdf-summary-num">' + regs.length + '</div><div class="pdf-summary-label">Total registros / 总记录</div></div>' +
+        '<div class="pdf-summary-box"><div class="pdf-summary-num" style="color:#e74c3c">' + incs.length + '</div><div class="pdf-summary-label">Inconformidades / 不合格</div></div>' +
+        '<div class="pdf-summary-box"><div class="pdf-summary-num" style="color:#1db36e">' + bonus.length + '</div><div class="pdf-summary-label">Bonificações / 奖励</div></div>' +
+        '<div class="pdf-summary-box">' +
+          '<div class="pdf-summary-num ' + (totalBonus+totalInc>=0?'pdf-pts-pos':'pdf-pts-neg') + '">' + (totalBonus+totalInc>0?'+':'') + (totalBonus+totalInc) + '</div>' +
+          '<div class="pdf-summary-label">Δ pontos / 分数变化</div>' +
+        '</div>' +
+      '</div>' +
+
+      // SEÇÃO INCONFORMIDADES
+      ((tipo==='todos'||tipo==='inconformidade') ?
+        '<div class="pdf-section-title">❌ Inconformidades / 不合格项 (' + incs.length + ')</div>' +
+        renderItems(incs) : '') +
+
+      // SEÇÃO BÔNUS
+      ((tipo==='todos'||tipo==='bonus') ?
+        '<div class="pdf-section-title" style="margin-top:' + ((tipo==='todos'&&incs.length?'18px':'0') ) + '">⭐ Bonificações / 奖励 (' + bonus.length + ')</div>' +
+        renderItems(bonus) : '') +
+
+      // ASSINATURAS
+      '<div class="pdf-sign-area">' +
+        '<div class="pdf-sign-box">' +
+          '<div class="pdf-sign-line"></div>' +
+          '<div class="pdf-sign-name">' + esc(person.name) + '</div>' +
+          '<div class="pdf-sign-role">' + esc(person.cargo) + '</div>' +
+        '</div>' +
+        '<div class="pdf-sign-box">' +
+          '<div class="pdf-sign-line"></div>' +
+          '<div class="pdf-sign-name">' + esc(autor.name) + '</div>' +
+          '<div class="pdf-sign-role">' + esc(ROLE_LABELS[autor.role]||autor.role) + '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // FOOTER
+      '<div class="pdf-footer-doc">AvaliaGO — Sistema de Avaliação / 评估系统 &nbsp;|&nbsp; Documento gerado automaticamente / 自动生成文档 &nbsp;|&nbsp; ' + hoje + '</div>' +
+    '</div>';
+
+  return html;
+}
+
+function imprimirFeedback() {
+  var pessoaId = (document.getElementById('fb_pessoa')||{}).value;
+  var mes      = (document.getElementById('fb_mes')||{}).value;
+  var tipo     = (document.getElementById('fb_tipo')||{}).value||'todos';
+  var status   = (document.getElementById('fb_status')||{}).value||'todos';
+  if (!pessoaId || !mes) { toast('Selecione pessoa e mês antes de imprimir / 请先选择人员和月份','warn'); return; }
+
+  var html = buildFeedbackHTML(pessoaId, mes, tipo, status);
+  var frame = document.getElementById('print-frame');
+  frame.innerHTML = '<div class="pdf-preview-wrap">' + html + '</div>';
+  window.print();
+  setTimeout(function(){ frame.innerHTML = ''; }, 2000);
+}
+
+
 function showModal(html, lg) {
   document.getElementById('mod-container').innerHTML =
     '<div class="mo" onclick="closeOnBg(event)"><div class="modal' + (lg?' modal-lg':'') + '">' +
