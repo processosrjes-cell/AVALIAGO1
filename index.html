@@ -325,23 +325,95 @@ var CRITERIOS = [
 ];
 var CARGOS = ['auxiliar','focal','assistente'];
 var CARGO_LABELS = {auxiliar:'Auxiliar / 辅助员',focal:'Focal / 重点员工',assistente:'Assistente / 助理'};
-var TURNOS = ['T1','T2','T3','T4'];
+var TURNOS = ['T1','T2','T3'];
 var MODS = ['Carregamento','Indução','Separação','Expedição','Recebimento','Qualidade','Embalagem','Estoque'];
 
 // ===== STATE =====
 var S = { user:null, page:'dashboard', config:{meAtual:''}, users:[], colabs:[], registros:[] };
 
 // ============================================================
-//  API — usa GET com parâmetros na URL (único método que
-//  funciona com CORS no Apps Script sem proxy)
+//  SESSÃO — persiste login no sessionStorage
+//  (sessionStorage limpa ao fechar a aba, ideal para segurança)
+// ============================================================
+var SESSION_KEY = 'avaliago_session';
+
+function saveSession() {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      user:   S.user,
+      config: S.config,
+      page:   S.page
+    }));
+  } catch(e) { /* sessionStorage indisponível */ }
+}
+
+function loadSession() {
+  try {
+    var raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+    var sess = JSON.parse(raw);
+    if (!sess || !sess.user || !sess.user.id) return false;
+    S.user   = sess.user;
+    S.config = sess.config || { meAtual: '' };
+    S.page   = sess.page   || 'dashboard';
+    return true;
+  } catch(e) { return false; }
+}
+
+function clearSession() {
+  try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+// Inicializa app ao carregar — tenta restaurar sessão antes de mostrar login
+window.addEventListener('load', function() {
+  if (loadSession()) {
+    // Sessão encontrada — restaura estado sem novo login
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display   = 'flex';
+    buildSidebar();
+    loadAll().then(function() {
+      renderPage();
+      buildSidebar();
+    });
+  }
+  // Se não há sessão, a tela de login já está visível por padrão
+});
+
+// ============================================================
+//  API — dois métodos:
+//  api()     → GET com params na URL (CORS seguro para dados pequenos)
+//  apiPost() → POST com body JSON (para imports grandes, ex: Excel)
+//              Nota: Apps Script aceita POST mas o redirect pode perder body.
+//              Solução: enviar em lotes de 10 via GET.
 // ============================================================
 function api(action, body) {
   body = body || {};
-  var encoded = encodeURIComponent(JSON.stringify(body));
+  var json    = JSON.stringify(body);
+  var encoded = encodeURIComponent(json);
+  // URLs têm limite ~8000 chars — usa POST se payload for grande
+  if (encoded.length > 6000) {
+    return apiPost(action, body);
+  }
   var url = GS_URL + '?action=' + encodeURIComponent(action) + '&data=' + encoded;
   return fetch(url, { method: 'GET', redirect: 'follow' })
-    .then(function(r){ return r.json(); })
-    .catch(function(e){ return { ok: false, msg: 'Falha de rede: ' + e.message }; });
+    .then(function(r) { return r.json(); })
+    .catch(function(e) { return { ok: false, msg: 'Falha de rede (GET): ' + e.message }; });
+}
+
+// POST direto — funciona porque Apps Script aceita POST de qualquer origem
+// quando publicado como "Qualquer pessoa". O redirect do GAS em POST retorna
+// o JSON corretamente pois usamos redirect:'follow'.
+function apiPost(action, body) {
+  body = body || {};
+  body.action = action;
+  return fetch(GS_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain' }, // evita preflight OPTIONS
+    body: JSON.stringify(body)
+  })
+    .then(function(r) { return r.json(); })
+    .catch(function(e) { return { ok: false, msg: 'Falha de rede (POST): ' + e.message }; });
 }
 
 // ===== TOAST =====
@@ -359,17 +431,19 @@ function toast(msg, type, dur) {
 function doLogin() {
   var login = document.getElementById('li').value.trim();
   var pass  = document.getElementById('lp').value;
-  if (!login || !pass) { lalert('Preencha login e senha', 'warn'); return; }
+  if (!login || !pass) { lalert('Preencha login e senha / 请填写用户名和密码', 'warn'); return; }
   if (GS_URL === 'COLE_AQUI_A_URL_DO_SEU_WEB_APP') {
-    lalert('⚠️ Configure a variável GS_URL no topo do arquivo HTML com a URL do seu Apps Script!', 'error'); return;
+    lalert('⚠️ Configure a variável GS_URL no HTML com a URL do Apps Script!', 'error'); return;
   }
-  lalert('<span class="spin"></span> Conectando...', 'info');
-  api('login', {login:login, pass:pass}).then(function(res) {
+  lalert('<span class="spin"></span> Conectando... / 连接中...', 'info');
+  api('login', { login: login, pass: pass }).then(function(res) {
     if (!res.ok) { lalert(res.msg || 'Erro ao conectar', 'error'); return; }
     S.user = res.data;
+    S.page = 'dashboard';
     loadAll().then(function() {
+      saveSession();  // ← persiste sessão
       document.getElementById('login').style.display = 'none';
-      document.getElementById('app').style.display = 'flex';
+      document.getElementById('app').style.display   = 'flex';
       buildSidebar();
       navigate('dashboard');
     });
@@ -381,9 +455,10 @@ function lalert(msg, type) {
 }
 
 function doLogout() {
-  S.user = null; S.users = []; S.colabs = []; S.registros = [];
+  clearSession();  // ← limpa sessão salva
+  S.user = null; S.users = []; S.colabs = []; S.registros = []; S.config = { meAtual: '' };
   document.getElementById('login').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
+  document.getElementById('app').style.display   = 'none';
   document.getElementById('li').value = '';
   document.getElementById('lp').value = '';
   document.getElementById('lalert').innerHTML = '';
@@ -497,6 +572,7 @@ var PAGE_TITLES = {
 
 function navigate(page) {
   S.page = page;
+  saveSession();  // ← persiste página atual
   document.querySelectorAll('.nav-it').forEach(function(el){ el.classList.remove('active'); });
   var nav = document.getElementById('nav-' + page);
   if (nav) nav.classList.add('active');
@@ -577,78 +653,152 @@ function rankCard(colabs, mes) {
 //  DASHBOARDS
 // ============================================================
 function dashAdmin() {
-  var mes=S.config.meAtual||'';
-  var pend=S.registros.filter(function(r){return r.status==='pendente';}).length;
-  var aprov=S.registros.filter(function(r){return r.status==='aprovado';}).length;
+  var mes  = S.config.meAtual || '';
+  var pend = S.registros.filter(function(r){ return r.status==='pendente'; }).length;
+  var aprov= S.registros.filter(function(r){ return r.status==='aprovado'; }).length;
+  var avgGeral = S.colabs.length
+    ? Math.round(S.colabs.reduce(function(s,c){ return s + getColabPts(c.id, mes); }, 0) / S.colabs.length)
+    : 100;
   return '<div class="g5" style="margin-bottom:16px">' +
-    stat(S.users.length,'Usuários / 用户','var(--navy2)') +
-    stat(S.colabs.length,'Colaboradores / 员工','var(--green)') +
+    stat(S.users.length,   'Usuários / 用户',        'var(--navy2)') +
+    stat(S.colabs.length,  'Colaboradores / 员工',   'var(--green)') +
     stat(S.registros.length,'Total registros / 总记录','var(--navy3)') +
-    stat(pend,'Pendentes / 待审批','var(--orange)',true) +
-    stat(aprov,'Aprovados / 已批准','var(--green)') +
-    '</div><div class="g2">' + rankCard(S.colabs,mes) + turnoChart(mes) + '</div>';
+    stat(pend,             'Pendentes / 待审批',      'var(--orange)', true) +
+    stat(avgGeral,         'Média geral / 总平均分',  'var(--gold)') +
+  '</div>' +
+  '<div class="g2" style="margin-bottom:0">' +
+    rankCard(S.colabs, mes) +
+    turnoChart(mes) +   // retorna 2 cards — ficam na coluna direita empilhados
+  '</div>';
 }
 
 function dashGerente() {
-  var mes=S.config.meAtual||'';
-  var ap=S.registros.filter(function(r){return r.status==='aprovado'&&r.mes===mes;});
-  var avg=S.colabs.length?Math.round(S.colabs.reduce(function(s,c){return s+getColabPts(c.id,mes);},0)/S.colabs.length):100;
+  var mes  = S.config.meAtual || '';
+  var ap   = S.registros.filter(function(r){ return r.status==='aprovado' && r.mes===mes; });
+  var avgGeral = S.colabs.length
+    ? Math.round(S.colabs.reduce(function(s,c){ return s + getColabPts(c.id, mes); }, 0) / S.colabs.length)
+    : 100;
   return '<div class="alert alert-info">📊 Visão Gerencial — somente visualização / 管理层视图 — 仅查看</div>' +
     '<div class="g4" style="margin-bottom:16px">' +
-    stat(S.colabs.length,'Colaboradores / 员工总数','var(--navy2)') +
-    stat(ap.filter(function(r){return r.tipo==='inconformidade';}).length,'Inconformidades / 不合格','var(--red)',true) +
-    stat(ap.filter(function(r){return r.tipo==='bonus';}).length,'Bonificações / 奖励','var(--green)') +
-    stat(avg,'Média pontos / 平均分','var(--gold)') + '</div>' +
-    '<div class="g2">' + rankCard(S.colabs,mes) +
-    '<div><div class="card"><div class="card-title">Inconformidades / 不合格项</div>' +
-    barChart(Object.keys(INCONF).map(function(k){return{l:INCONF[k].cn,v:ap.filter(function(r){return r.tipo==='inconformidade'&&r.nivel===k;}).length,c:lvColor(k)};})) +
-    '</div><div class="card" style="margin-top:0"><div class="card-title">Bônus / 奖励</div>' +
-    barChart(Object.keys(BONUS).map(function(k){return{l:BONUS[k].cn,v:ap.filter(function(r){return r.tipo==='bonus'&&r.nivel===k;}).length,c:lvColor(k)};})) +
-    '</div></div></div>';
+      stat(S.colabs.length, 'Colaboradores / 员工总数', 'var(--navy2)') +
+      stat(ap.filter(function(r){ return r.tipo==='inconformidade'; }).length, 'Inconformidades / 不合格', 'var(--red)', true) +
+      stat(ap.filter(function(r){ return r.tipo==='bonus'; }).length, 'Bonificações / 奖励', 'var(--green)') +
+      stat(avgGeral, 'Média geral / 总平均分', 'var(--gold)') +
+    '</div>' +
+    '<div class="g2">' +
+      rankCard(S.colabs, mes) +
+      turnoChart(mes) +
+    '</div>';
 }
 
 function dashLider() {
-  var u=S.user, mes=S.config.meAtual||'', equipe=liderColabs(u.id);
-  var mr=S.registros.filter(function(r){return r.autorId===u.id;});
+  var u = S.user, mes = S.config.meAtual||'', equipe = liderColabs(u.id);
+  var mr = S.registros.filter(function(r){ return r.autorId === u.id; });
+  var avgEquipe = equipe.length
+    ? Math.round(equipe.reduce(function(s,c){ return s + getColabPts(c.id, mes); }, 0) / equipe.length)
+    : 100;
+  var corAvg = avgEquipe >= 80 ? 'var(--green)' : avgEquipe >= 50 ? 'var(--orange)' : 'var(--red)';
+
   var rows = equipe.length ? equipe.map(function(c){
-    var pts=getColabPts(c.id,mes);
-    return '<tr><td><b>' + c.name + '</b></td><td><span class="tag">' + (CARGO_LABELS[c.cargo]||c.cargo) + '</span></td>' +
+    var pts = getColabPts(c.id, mes);
+    return '<tr><td><b>' + c.name + '</b></td>' +
+      '<td><span class="tag">' + (CARGO_LABELS[c.cargo]||c.cargo) + '</span></td>' +
       '<td>' + (c.modalidade||'—') + '</td>' +
-      '<td><span class="' + (pts>=100?'pts-p':'pts-n') + '">' + pts + '</span></td><td>' + pb(pts) + '</td></tr>';
+      '<td><span class="' + (pts>=100?'pts-p':'pts-n') + '">' + pts + '</span></td>' +
+      '<td>' + pb(pts) + '</td></tr>';
   }).join('') : '<tr><td colspan="5" class="empty">Nenhum colaborador atribuído / 无员工分配</td></tr>';
-  return '<div class="g4" style="margin-bottom:16px">' +
-    stat(equipe.length,'Minha Equipe / 我的团队','var(--navy2)') +
-    stat(mr.filter(function(r){return r.mes===mes;}).length,'Registros no mês / 本月','var(--gold)') +
-    stat(mr.filter(function(r){return r.status==='pendente';}).length,'Pendentes / 待审批','var(--orange)',true) +
-    stat(mr.filter(function(r){return r.status==='aprovado';}).length,'Aprovados / 已批准','var(--green)') + '</div>' +
-    '<div class="card"><div class="card-title">Minha Equipe / 我的团队 — ' + mes + '</div><div class="tw"><table>' +
-    '<thead><tr><th>Colaborador</th><th>Cargo</th><th>Modalidade</th><th>Pts ' + mes + '</th><th>Barra</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody></table></div></div>';
+
+  return '<div class="g5" style="margin-bottom:16px">' +
+    stat(equipe.length,  'Minha Equipe / 我的团队', 'var(--navy2)') +
+    stat(mr.filter(function(r){ return r.mes===mes; }).length, 'Registros no mês / 本月', 'var(--gold)') +
+    stat(mr.filter(function(r){ return r.status==='pendente'; }).length, 'Pendentes / 待审批', 'var(--orange)', true) +
+    stat(mr.filter(function(r){ return r.status==='aprovado'; }).length, 'Aprovados / 已批准', 'var(--green)') +
+    '<div class="stat" style="--accent:' + corAvg + '">' +
+      '<div class="stat-num" style="color:' + corAvg + '">' + avgEquipe + '</div>' +
+      '<div class="stat-label">Média equipe / 团队均分</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="g2">' +
+    '<div class="card"><div class="card-title">Minha Equipe / 我的团队 — ' + mes + '</div>' +
+      '<div class="tw"><table>' +
+        '<thead><tr><th>Colaborador</th><th>Cargo</th><th>Modalidade</th><th>Pts</th><th>Barra</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table></div>' +
+    '</div>' +
+    turnoChart(mes) +
+  '</div>';
 }
 
 function dashSup() {
-  var u=S.user, mes=S.config.meAtual||'', lids=supLiders(u.turno||''), pend=countPending();
+  var u    = S.user, mes = S.config.meAtual||'';
+  var lids = supLiders(u.turno||''), pend = countPending();
+  var colabsDoTurno = S.colabs.filter(function(c){
+    return lids.some(function(l){ return l.id === c.liderId; });
+  });
+  var avgTurnoSup = colabsDoTurno.length
+    ? Math.round(colabsDoTurno.reduce(function(s,c){ return s + getColabPts(c.id, mes); }, 0) / colabsDoTurno.length)
+    : 100;
+  var corAvg = avgTurnoSup >= 80 ? 'var(--green)' : avgTurnoSup >= 50 ? 'var(--orange)' : 'var(--red)';
+
   var lidRows = lids.length ? lids.map(function(l){
-    return '<tr><td><b>' + l.name + '</b></td><td>' + ((l.modalidades||[]).join(', ')||'—') + '</td><td>' + liderColabs(l.id).length + '</td></tr>';
-  }).join('') : '<tr><td colspan="3" class="empty">Nenhum líder no turno</td></tr>';
-  return '<div class="g4" style="margin-bottom:16px">' +
-    stat(lids.length,'Líderes / 领班','var(--navy2)') +
-    stat(S.colabs.length,'Colaboradores / 员工','var(--green)') +
-    stat(pend,'Pendentes validação / 待审批','var(--orange)',true) +
-    stat(S.registros.filter(function(r){return r.autorId===u.id&&r.mes===mes;}).length,'Meus registros / 我的记录','var(--gold)') + '</div>' +
-    '<div class="g2"><div class="card"><div class="card-title">Líderes — Turno ' + (u.turno||'') + '</div><div class="tw"><table>' +
-    '<thead><tr><th>Líder</th><th>Modalidades</th><th>Equipe</th></tr></thead>' +
-    '<tbody>' + lidRows + '</tbody></table></div></div>' + rankCard(S.colabs,mes) + '</div>';
+    var colabsL = liderColabs(l.id);
+    var avgL    = colabsL.length
+      ? Math.round(colabsL.reduce(function(s,c){ return s + getColabPts(c.id, mes); }, 0) / colabsL.length)
+      : 100;
+    var corL = avgL >= 80 ? '#1db36e' : avgL >= 50 ? '#e67e22' : '#e74c3c';
+    return '<tr>' +
+      '<td><b>' + l.name + '</b></td>' +
+      '<td>' + ((l.modalidades||[]).join(', ')||'—') + '</td>' +
+      '<td>' + colabsL.length + '</td>' +
+      '<td><span style="font-weight:700;color:' + corL + '">' + avgL + ' pts</span></td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="4" class="empty">Nenhum líder no turno</td></tr>';
+
+  return '<div class="g5" style="margin-bottom:16px">' +
+    stat(lids.length,        'Líderes / 领班',           'var(--navy2)') +
+    stat(colabsDoTurno.length,'Colaboradores / 员工',    'var(--green)') +
+    stat(pend,               'Pendentes validação / 待审批','var(--orange)', true) +
+    stat(S.registros.filter(function(r){ return r.autorId===u.id && r.mes===mes; }).length, 'Meus registros / 我的记录', 'var(--gold)') +
+    '<div class="stat" style="--accent:' + corAvg + '">' +
+      '<div class="stat-num" style="color:' + corAvg + '">' + avgTurnoSup + '</div>' +
+      '<div class="stat-label">Média ' + (u.turno||'') + ' / 本班均分</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="g2">' +
+    '<div class="card">' +
+      '<div class="card-title">Líderes — Turno ' + (u.turno||'') + ' / ' + (u.turno||'') + '班领班</div>' +
+      '<div class="tw"><table>' +
+        '<thead><tr><th>Líder</th><th>Modalidades</th><th>Equipe</th><th>Média pts</th></tr></thead>' +
+        '<tbody>' + lidRows + '</tbody>' +
+      '</table></div>' +
+    '</div>' +
+    turnoChart(mes) +
+  '</div>';
 }
 
 function dashCoord() {
-  var u=S.user, mes=S.config.meAtual||'', sups=coordSups(u.turno||'');
-  return '<div class="g4" style="margin-bottom:16px">' +
-    stat(sups.length,'Supervisores / 主管','var(--navy2)') +
-    stat(S.colabs.length,'Colaboradores / 员工','var(--green)') +
-    stat(countPending(),'Pendentes / 待审批','var(--orange)',true) +
-    stat(S.registros.filter(function(r){return r.mes===mes&&r.autorTurno===u.turno;}).length,'Reg. turno / 本班记录','var(--gold)') + '</div>' +
-    '<div class="g2">' + rankCard(S.colabs,mes) + turnoChart(mes) + '</div>';
+  var u    = S.user, mes = S.config.meAtual||'';
+  var sups = coordSups(u.turno||'');
+  var colabsDoTurno = S.colabs.filter(function(c){ return c.turno === u.turno; });
+  var avgTurnoCoord = colabsDoTurno.length
+    ? Math.round(colabsDoTurno.reduce(function(s,c){ return s + getColabPts(c.id, mes); }, 0) / colabsDoTurno.length)
+    : 100;
+  var corAvg = avgTurnoCoord >= 80 ? 'var(--green)' : avgTurnoCoord >= 50 ? 'var(--orange)' : 'var(--red)';
+
+  return '<div class="g5" style="margin-bottom:16px">' +
+    stat(sups.length,           'Supervisores / 主管',     'var(--navy2)') +
+    stat(colabsDoTurno.length,  'Colaboradores / 员工',    'var(--green)') +
+    stat(countPending(),        'Pendentes / 待审批',       'var(--orange)', true) +
+    stat(S.registros.filter(function(r){ return r.mes===mes && r.autorTurno===u.turno; }).length, 'Reg. turno / 本班记录', 'var(--gold)') +
+    '<div class="stat" style="--accent:' + corAvg + '">' +
+      '<div class="stat-num" style="color:' + corAvg + '">' + avgTurnoCoord + '</div>' +
+      '<div class="stat-label">Média ' + (u.turno||'') + ' / 本班均分</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="g2">' +
+    rankCard(S.colabs, mes) +
+    turnoChart(mes) +
+  '</div>';
 }
 
 function stat(n,lb,accent,warn) {
@@ -656,10 +806,114 @@ function stat(n,lb,accent,warn) {
   return '<div class="stat" style="--accent:' + accent + '"><div class="stat-num" ' + c + '>' + n + '</div><div class="stat-label">' + lb + '</div></div>';
 }
 
+// ── Calcula média de pontos dos colaboradores de um turno ──
+function avgTurno(turno, mes) {
+  var membros = S.colabs.filter(function(c){ return c.turno === turno; });
+  if (!membros.length) return 0;
+  var soma = membros.reduce(function(s,c){ return s + getColabPts(c.id, mes); }, 0);
+  return Math.round(soma / membros.length);
+}
+
+// ── Card duplo: registros por turno + média de pontos por turno ──
 function turnoChart(mes) {
-  var ap = S.registros.filter(function(r){return r.status==='aprovado'&&r.mes===mes;});
-  return '<div class="card"><div class="card-title">Registros por Turno / 按班次 — ' + mes + '</div>' +
-    barChart(TURNOS.map(function(t){return{l:t,v:ap.filter(function(r){return r.autorTurno===t;}).length,c:'#2355a0'};})) + '</div>';
+  var ap = S.registros.filter(function(r){ return r.status === 'aprovado' && r.mes === mes; });
+
+  // Dados para cada turno
+  var dadosTurnos = TURNOS.map(function(t) {
+    var colabsT  = S.colabs.filter(function(c){ return c.turno === t; });
+    var media    = avgTurno(t, mes);
+    var regsT    = ap.filter(function(r){ return r.autorTurno === t; }).length;
+    var incs     = ap.filter(function(r){ return r.tipo === 'inconformidade' && r.autorTurno === t; }).length;
+    var bons     = ap.filter(function(r){ return r.tipo === 'bonus' && r.autorTurno === t; }).length;
+    var corMedia = media >= 80 ? '#1db36e' : media >= 50 ? '#e67e22' : '#e74c3c';
+    var pct      = Math.min(100, media);
+    return { t: t, media: media, regs: regsT, colabs: colabsT.length, incs: incs, bons: bons, cor: corMedia, pct: pct };
+  });
+
+  // Gráfico de barras SVG inline — mais preciso que div-based
+  var maxMedia = Math.max.apply(null, dadosTurnos.map(function(d){ return d.media; }).concat([100]));
+  var maxRegs  = Math.max.apply(null, dadosTurnos.map(function(d){ return d.regs;  }).concat([1]));
+  var CORES_T  = { T1: '#1a3a6b', T2: '#2355a0', T3: '#3b82f6' };
+
+  // ─ Card 1: Média de pontos por turno ─
+  var cardMedia =
+    '<div class="card">' +
+      '<div class="card-title">📊 Média de Pontos por Turno / 各班次平均分 — ' + mes + '</div>' +
+      // Barras horizontais estilo gauge por turno
+      dadosTurnos.map(function(d) {
+        return '<div style="margin-bottom:14px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span class="turno">' + d.t + '</span>' +
+              '<span style="font-size:12px;color:var(--text2)">' + d.colabs + ' colaborador(es)</span>' +
+            '</div>' +
+            '<div style="text-align:right">' +
+              '<span style="font-size:18px;font-weight:700;color:' + d.cor + '">' + d.media + '</span>' +
+              '<span style="font-size:11px;color:var(--text3);margin-left:2px">pts</span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="background:#e8ecf5;border-radius:20px;height:10px;overflow:hidden">' +
+            '<div style="height:10px;border-radius:20px;background:' + d.cor + ';width:' + d.pct + '%;transition:width .6s"></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:14px;margin-top:5px;font-size:11px;color:var(--text3)">' +
+            '<span>❌ ' + d.incs + ' inconf.</span>' +
+            '<span>⭐ ' + d.bons + ' bônus</span>' +
+            '<span>📋 ' + d.regs + ' reg.</span>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+      // Mini comparativo visual colunas
+      '<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px">Comparativo visual / 视觉对比</div>' +
+        '<div style="display:flex;align-items:flex-end;gap:12px;height:90px;padding-bottom:4px">' +
+          dadosTurnos.map(function(d) {
+            var h = maxMedia > 0 ? Math.max(6, Math.round(d.media / maxMedia * 78)) : 6;
+            return '<div style="flex:1;display:flex;flex-direction:column;align-items:center">' +
+              '<span style="font-size:11px;font-weight:700;color:' + d.cor + ';margin-bottom:3px">' + d.media + '</span>' +
+              '<div style="width:100%;height:' + h + 'px;background:' + (CORES_T[d.t]||'#2355a0') + ';border-radius:5px 5px 0 0"></div>' +
+              '<span style="font-size:11px;font-weight:700;color:var(--navy2);margin-top:5px">' + d.t + '</span>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  // ─ Card 2: Registros por turno (contagem) ─
+  var cardRegs =
+    '<div class="card">' +
+      '<div class="card-title">📋 Registros Aprovados por Turno / 已批准记录 — ' + mes + '</div>' +
+      dadosTurnos.map(function(d) {
+        var hPct = maxRegs > 0 ? Math.round(d.regs / maxRegs * 100) : 0;
+        return '<div style="margin-bottom:12px">' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:3px">' +
+            '<span class="turno">' + d.t + '</span>' +
+            '<span style="font-size:13px;font-weight:700;color:var(--navy2)">' + d.regs + '</span>' +
+          '</div>' +
+          '<div style="background:#e8ecf5;border-radius:20px;height:8px;overflow:hidden">' +
+            '<div style="height:8px;border-radius:20px;background:' + (CORES_T[d.t]||'#2355a0') + ';width:' + hPct + '%;transition:width .6s"></div>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+      // Totalizador
+      '<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:6px;display:flex;justify-content:space-between">' +
+        '<div style="text-align:center;flex:1">' +
+          '<div style="font-size:20px;font-weight:700;color:var(--red)">' +
+            ap.filter(function(r){return r.tipo==='inconformidade';}).length +
+          '</div><div style="font-size:10px;color:var(--text3)">Total Inconf.</div>' +
+        '</div>' +
+        '<div style="text-align:center;flex:1;border-left:1px solid var(--border)">' +
+          '<div style="font-size:20px;font-weight:700;color:var(--green)">' +
+            ap.filter(function(r){return r.tipo==='bonus';}).length +
+          '</div><div style="font-size:10px;color:var(--text3)">Total Bônus</div>' +
+        '</div>' +
+        '<div style="text-align:center;flex:1;border-left:1px solid var(--border)">' +
+          '<div style="font-size:20px;font-weight:700;color:var(--navy2)">' + ap.length + '</div>' +
+          '<div style="font-size:10px;color:var(--text3)">Total Geral</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  return cardMedia + cardRegs;
 }
 
 // ============================================================
@@ -821,7 +1075,7 @@ function deleteColab(id, name) {
 // ============================================================
 function pgUpload() {
   return '<div class="card"><div class="card-title">📤 Importar Colaboradores via Excel / 导入员工</div>' +
-    '<div class="alert alert-info">Colunas obrigatórias: <b>nome</b>, <b>cargo</b> (auxiliar/focal/assistente), <b>turno</b> (T1~T4), <b>modalidade</b><br>' +
+    '<div class="alert alert-info">Colunas obrigatórias: <b>nome</b>, <b>cargo</b> (auxiliar/focal/assistente), <b>turno</b> (T1, T2 ou T3), <b>modalidade</b><br>' +
     '<span style="color:var(--text3);font-size:11px">必须包含列：nome、cargo、turno、modalidade</span></div>' +
     '<div class="fg" style="margin-top:12px"><label>Arquivo .xlsx / .xls</label><input type="file" id="xlsxFile" accept=".xlsx,.xls"></div>' +
     '<div id="xlpreview"></div>' +
@@ -832,19 +1086,58 @@ function pgUpload() {
 
 function processXlsx() {
   var file = document.getElementById('xlsxFile').files[0];
-  if (!file) { toast('Selecione um arquivo','warn'); return; }
+  if (!file) { toast('Selecione um arquivo / 请选择文件','warn'); return; }
   var reader = new FileReader();
   reader.onload = function(e) {
     try {
-      var wb = XLSX.read(e.target.result,{type:'binary'});
+      var wb   = XLSX.read(e.target.result, { type:'binary' });
       var data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      document.getElementById('xlpreview').innerHTML = '<div class="alert alert-info">📋 ' + data.length + ' linhas lidas. Enviando... / ' + data.length + '行，上传中...</div>';
-      api('importColabs',{callerRole:S.user.role,rows:data}).then(function(res){
-        if (!res.ok) { toast(res.msg,'error'); return; }
-        toast(res.msg,'success');
-        refreshData();
-      });
-    } catch(err) { toast('Erro ao ler Excel: ' + err.message,'error'); }
+      if (!data || data.length === 0) {
+        toast('Arquivo vazio ou sem dados válidos / 文件为空','warn'); return;
+      }
+
+      var preview = document.getElementById('xlpreview');
+      preview.innerHTML = '<div class="alert alert-info">📋 ' + data.length + ' linhas encontradas. Importando em lotes... / ' + data.length + '行，批量上传中...</div>';
+
+      // Enviar em lotes de 20 para não estourar URL
+      var BATCH = 20;
+      var totalAdded = 0;
+      var totalIgnored = 0;
+      var batches = [];
+      for (var i = 0; i < data.length; i += BATCH) {
+        batches.push(data.slice(i, i + BATCH));
+      }
+
+      var idx = 0;
+      function sendNext() {
+        if (idx >= batches.length) {
+          var msg = '✅ ' + totalAdded + ' importados, ' + totalIgnored + ' ignorados / 已导入' + totalAdded + '条';
+          preview.innerHTML = '<div class="alert alert-success">' + msg + '</div>';
+          toast(msg, 'success');
+          refreshData();
+          return;
+        }
+        var lote = batches[idx];
+        idx++;
+        preview.innerHTML = '<div class="alert alert-info">⏳ Enviando lote ' + idx + '/' + batches.length + '... / 发送批次 ' + idx + '/' + batches.length + '</div>';
+        apiPost('importColabs', { callerRole: S.user.role, rows: lote }).then(function(res) {
+          if (!res.ok) {
+            toast('Erro no lote ' + idx + ': ' + res.msg, 'error');
+            preview.innerHTML = '<div class="alert alert-error">❌ ' + res.msg + '</div>';
+            return;
+          }
+          totalAdded   += (res.data && res.data.added)    ? parseInt(res.data.added)    : 0;
+          totalIgnored += (res.data && res.data.ignorados) ? parseInt(res.data.ignorados) : 0;
+          sendNext();
+        }).catch(function(err) {
+          toast('Falha de conexão no lote ' + idx, 'error');
+        });
+      }
+      sendNext();
+
+    } catch(err) {
+      toast('Erro ao ler Excel: ' + err.message, 'error');
+    }
   };
   reader.readAsBinaryString(file);
 }
