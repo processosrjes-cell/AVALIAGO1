@@ -293,7 +293,7 @@ code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:11.5px}
 //  Após publicar: Implantar → Nova implantação → App da Web
 //  Executar como: EU | Acesso: QUALQUER PESSOA
 // ============================================================
-var GS_URL = 'https://script.google.com/macros/s/AKfycbzc8pTaslC1AvPwTD1TIF5nNNSsXEHdxG1kiqp2wHkjp6AlTdjIxLrQ9HrJAz0gGkYGow/exec';
+var GS_URL = 'COLE_AQUI_A_URL_DO_SEU_WEB_APP';
 // Exemplo: 'https://script.google.com/macros/s/AKfycbXXXXX/exec'
 // ============================================================
 
@@ -326,7 +326,39 @@ var CRITERIOS = [
 var CARGOS = ['auxiliar','focal','assistente'];
 var CARGO_LABELS = {auxiliar:'Auxiliar / 辅助员',focal:'Focal / 重点员工',assistente:'Assistente / 助理'};
 var TURNOS = ['T1','T2','T3'];
-var MODS = ['Carregamento','Indução','Separação','Expedição','Recebimento','Qualidade','Embalagem','Estoque'];
+var MODS = [
+  'devolucao',
+  'recebimento',
+  'sem movimentacao',
+  'reembalo',
+  'expedicao',
+  'inducao',
+  'carregamento',
+  'lote'
+];
+var MOD_LABELS = {
+  'devolucao':        'Devolução / 退货',
+  'recebimento':      'Recebimento / 收货',
+  'sem movimentacao': 'Sem Movimentação / 无移动',
+  'reembalo':         'Reembalo / 重新包装',
+  'expedicao':        'Expedição / 发货',
+  'inducao':          'Indução / 引导',
+  'carregamento':     'Carregamento / 装货',
+  'lote':             'Lote / 批次'
+};
+
+// Retorna o líder correto para turno+modalidade (busca em S.users)
+// Regra: líder do mesmo turno que tenha a modalidade nas suas modalidades
+function autoLider(turno, modalidade) {
+  var norm = (modalidade||'').toLowerCase().trim();
+  var lider = S.users.find(function(u) {
+    if (u.role !== 'lider') return false;
+    if ((u.turno||'') !== turno) return false;
+    var mods = (u.modalidades||[]).map(function(m){ return m.toLowerCase().trim(); });
+    return mods.indexOf(norm) >= 0;
+  });
+  return lider ? lider.id : '';
+}
 
 // ===== STATE =====
 var S = { user:null, page:'dashboard', config:{meAtual:''}, users:[], colabs:[], registros:[] };
@@ -380,40 +412,29 @@ window.addEventListener('load', function() {
 });
 
 // ============================================================
-//  API — dois métodos:
-//  api()     → GET com params na URL (CORS seguro para dados pequenos)
-//  apiPost() → POST com body JSON (para imports grandes, ex: Excel)
-//              Nota: Apps Script aceita POST mas o redirect pode perder body.
-//              Solução: enviar em lotes de 10 via GET.
+//  API — GET com params na URL (CORS-safe no Apps Script)
+//  O Apps Script em produção perde o body no redirect 302 do POST,
+//  por isso usamos exclusivamente GET, enviando dados como JSON
+//  codificado no parâmetro ?data=...
+//  Para imports grandes: enviamos 1 colaborador por request.
 // ============================================================
 function api(action, body) {
   body = body || {};
-  var json    = JSON.stringify(body);
-  var encoded = encodeURIComponent(json);
-  // URLs têm limite ~8000 chars — usa POST se payload for grande
-  if (encoded.length > 6000) {
-    return apiPost(action, body);
-  }
+  var encoded = encodeURIComponent(JSON.stringify(body));
   var url = GS_URL + '?action=' + encodeURIComponent(action) + '&data=' + encoded;
   return fetch(url, { method: 'GET', redirect: 'follow' })
-    .then(function(r) { return r.json(); })
-    .catch(function(e) { return { ok: false, msg: 'Falha de rede (GET): ' + e.message }; });
-}
-
-// POST direto — funciona porque Apps Script aceita POST de qualquer origem
-// quando publicado como "Qualquer pessoa". O redirect do GAS em POST retorna
-// o JSON corretamente pois usamos redirect:'follow'.
-function apiPost(action, body) {
-  body = body || {};
-  body.action = action;
-  return fetch(GS_URL, {
-    method: 'POST',
-    redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain' }, // evita preflight OPTIONS
-    body: JSON.stringify(body)
-  })
-    .then(function(r) { return r.json(); })
-    .catch(function(e) { return { ok: false, msg: 'Falha de rede (POST): ' + e.message }; });
+    .then(function(r) {
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('application/json') >= 0 || ct.indexOf('text/plain') >= 0) {
+        return r.json();
+      }
+      // Apps Script às vezes retorna text/html em erros — captura e converte
+      return r.text().then(function(txt) {
+        try { return JSON.parse(txt); }
+        catch(e) { return { ok: false, msg: 'Resposta inválida do servidor: ' + txt.substring(0,120) }; }
+      });
+    })
+    .catch(function(e) { return { ok: false, msg: 'Falha de rede: ' + e.message }; });
 }
 
 // ===== TOAST =====
@@ -1028,22 +1049,78 @@ function pgColabs() {
 function openColabModal(id) {
   var c = id ? S.colabs.find(function(x){return x.id===id;}) : null;
   var liders = S.users.filter(function(u){return u.role==='lider';});
-  var cargoOpts = CARGOS.map(function(x){return '<option value="' + x + '"' + (c&&c.cargo===x?' selected':'') + '>' + CARGO_LABELS[x] + '</option>';}).join('');
-  var turnoOpts = TURNOS.map(function(t){return '<option value="' + t + '"' + (c&&c.turno===t?' selected':'') + '>' + t + '</option>';}).join('');
-  var modOpts = '<option value="">Nenhuma / 无</option>' + MODS.map(function(m){return '<option value="' + m + '"' + (c&&c.modalidade===m?' selected':'') + '>' + m + '</option>';}).join('');
-  var liderOpts = '<option value="">Sem líder / 无领班</option>' + liders.map(function(l){
-    return '<option value="' + l.id + '"' + (c&&c.liderId===l.id?' selected':'') + '>' + l.name + ' (' + (l.turno||'?') + ' — ' + ((l.modalidades||[]).join(',')||'todas') + ')</option>';
+
+  var cargoOpts = CARGOS.map(function(x){
+    return '<option value="' + x + '"' + (c&&c.cargo===x?' selected':'') + '>' + CARGO_LABELS[x] + '</option>';
   }).join('');
+
+  var turnoOpts = TURNOS.map(function(t){
+    return '<option value="' + t + '"' + (c&&c.turno===t?' selected':'') + '>' + t + '</option>';
+  }).join('');
+
+  var modOpts = '<option value="">Selecionar / 请选择</option>' + MODS.map(function(m){
+    return '<option value="' + m + '"' + (c&&c.modalidade===m?' selected':'') + '>' + (MOD_LABELS[m]||m) + '</option>';
+  }).join('');
+
+  var liderOpts = '<option value="">— automático por turno+modalidade / 自动按班次类别 —</option>' + liders.map(function(l){
+    return '<option value="' + l.id + '"' + (c&&c.liderId===l.id?' selected':'') + '>' +
+      l.name + ' (' + (l.turno||'?') + ' — ' + ((l.modalidades||[]).map(function(m){return MOD_LABELS[m]||m;}).join(',')||'todas') + ')' +
+    '</option>';
+  }).join('');
+
   showModal(
     '<div class="modal-title">' + (c?'✏️ Editar':'➕ Novo') + ' Colaborador / ' + (c?'编辑':'新建') + '员工</div>' +
-    '<div class="r2"><div class="fg"><label>Nome completo <span class="cn">/ 姓名</span></label><input id="cm_name" value="' + (c?esc(c.name):'') + '"></div>' +
-    '<div class="fg"><label>Cargo <span class="cn">/ 职位</span></label><select id="cm_cargo">' + cargoOpts + '</select></div></div>' +
-    '<div class="r2"><div class="fg"><label>Turno <span class="cn">/ 班次</span></label><select id="cm_turno">' + turnoOpts + '</select></div>' +
-    '<div class="fg"><label>Modalidade <span class="cn">/ 类别</span></label><select id="cm_mod">' + modOpts + '</select></div></div>' +
-    '<div class="fg"><label>Líder Responsável <span class="cn">/ 负责领班</span></label><select id="cm_lider">' + liderOpts + '</select></div>' +
-    '<div class="modal-ft"><button class="btn btn-ghost" onclick="closeModal()">Cancelar / 取消</button>' +
-    '<button class="btn btn-primary" onclick="saveColab(\'' + (id||'') + '\')">💾 Salvar / 保存</button></div>'
+    '<div class="r2">' +
+      '<div class="fg"><label>Nome completo <span class="cn">/ 姓名</span></label><input id="cm_name" value="' + (c?esc(c.name):'') + '"></div>' +
+      '<div class="fg"><label>Cargo <span class="cn">/ 职位</span></label><select id="cm_cargo">' + cargoOpts + '</select></div>' +
+    '</div>' +
+    '<div class="r2">' +
+      '<div class="fg"><label>Turno <span class="cn">/ 班次</span></label>' +
+        '<select id="cm_turno" onchange="onColabTurnoModChange()">' + turnoOpts + '</select>' +
+      '</div>' +
+      '<div class="fg"><label>Modalidade <span class="cn">/ 类别</span></label>' +
+        '<select id="cm_mod" onchange="onColabTurnoModChange()">' + modOpts + '</select>' +
+      '</div>' +
+    '</div>' +
+    '<div class="fg">' +
+      '<label>Líder Responsável <span class="cn">/ 负责领班</span>' +
+        ' <span id="lider_auto_tag" style="font-size:10px;color:var(--green);font-weight:600"></span>' +
+      '</label>' +
+      '<select id="cm_lider">' + liderOpts + '</select>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:4px">O líder é preenchido automaticamente pelo turno e modalidade. Você pode alterar manualmente. / 领班根据班次和类别自动填充，您也可以手动更改。</div>' +
+    '</div>' +
+    '<div class="modal-ft">' +
+      '<button class="btn btn-ghost" onclick="closeModal()">Cancelar / 取消</button>' +
+      '<button class="btn btn-primary" onclick="saveColab(\'' + (id||'') + '\')">💾 Salvar / 保存</button>' +
+    '</div>'
   );
+
+  // Dispara auto-link imediatamente ao abrir o modal
+  setTimeout(function(){ onColabTurnoModChange(true); }, 30);
+}
+
+// Chamado quando turno ou modalidade muda no modal de colaborador
+function onColabTurnoModChange(silent) {
+  var turnoEl = document.getElementById('cm_turno');
+  var modEl   = document.getElementById('cm_mod');
+  var liderEl = document.getElementById('cm_lider');
+  var tagEl   = document.getElementById('lider_auto_tag');
+  if (!turnoEl || !modEl || !liderEl) return;
+
+  var turno = turnoEl.value;
+  var mod   = modEl.value;
+  if (!turno || !mod) { if(tagEl) tagEl.textContent=''; return; }
+
+  var liderId = autoLider(turno, mod);
+  if (liderId) {
+    liderEl.value = liderId;
+    var lider = S.users.find(function(u){ return u.id===liderId; });
+    if (tagEl) tagEl.textContent = '✅ Auto: ' + (lider?lider.name:'');
+    if (!silent) toast('Líder vinculado automaticamente: ' + (lider?lider.name:''), 'success', 2000);
+  } else {
+    liderEl.value = '';
+    if (tagEl) tagEl.textContent = '⚠️ Nenhum líder encontrado para este turno/modalidade';
+  }
 }
 
 function saveColab(id) {
@@ -1052,7 +1129,9 @@ function saveColab(id) {
   var turno = document.getElementById('cm_turno').value;
   var mod   = document.getElementById('cm_mod').value;
   var lider = document.getElementById('cm_lider').value;
-  if (!name||!cargo||!turno) { toast('Preencha nome, cargo e turno','warn'); return; }
+  if (!name||!cargo||!turno) { toast('Preencha nome, cargo e turno / 请填写必填项','warn'); return; }
+  // Se líder não selecionado manualmente, tenta auto-vincular
+  if (!lider && turno && mod) lider = autoLider(turno, mod);
   api('saveColab',{callerRole:S.user.role,id:id,name:name,cargo:cargo,turno:turno,modalidade:mod,liderId:lider}).then(function(res){
     if (!res.ok) { toast(res.msg,'error'); return; }
     toast(res.msg,'success');
@@ -1074,14 +1153,41 @@ function deleteColab(id, name) {
 //  PAGE: UPLOAD EXCEL
 // ============================================================
 function pgUpload() {
-  return '<div class="card"><div class="card-title">📤 Importar Colaboradores via Excel / 导入员工</div>' +
-    '<div class="alert alert-info">Colunas obrigatórias: <b>nome</b>, <b>cargo</b> (auxiliar/focal/assistente), <b>turno</b> (T1, T2 ou T3), <b>modalidade</b><br>' +
-    '<span style="color:var(--text3);font-size:11px">必须包含列：nome、cargo、turno、modalidade</span></div>' +
-    '<div class="fg" style="margin-top:12px"><label>Arquivo .xlsx / .xls</label><input type="file" id="xlsxFile" accept=".xlsx,.xls"></div>' +
+  var modList = MODS.map(function(m){ return MOD_LABELS[m]||m; }).join(', ');
+  return '<div class="card">' +
+    '<div class="card-title">📤 Importar Colaboradores via Excel / 导入员工</div>' +
+    '<div class="alert alert-info">' +
+      '<div><b>Colunas obrigatórias / 必填列:</b> <code>nome</code> &nbsp;|&nbsp; <code>cargo</code> (auxiliar / focal / assistente) &nbsp;|&nbsp; <code>turno</code> (T1, T2 ou T3) &nbsp;|&nbsp; <code>modalidade</code></div>' +
+      '<div style="margin-top:6px"><b>Modalidades válidas / 有效类别:</b> ' + modList + '</div>' +
+      '<div style="margin-top:4px;font-size:11px;color:var(--text3)">O líder será vinculado automaticamente pelo turno + modalidade / 领班将根据班次和类别自动分配</div>' +
+    '</div>' +
+    '<div class="fg" style="margin-top:12px"><label>Arquivo .xlsx / .xls / 文件</label><input type="file" id="xlsxFile" accept=".xlsx,.xls"></div>' +
     '<div id="xlpreview"></div>' +
     '<div style="display:flex;gap:10px;margin-top:12px">' +
-    '<button class="btn btn-primary" onclick="processXlsx()">📤 Importar / 导入</button>' +
-    '<button class="btn btn-gold" onclick="dlTemplate()">⬇️ Baixar Modelo / 下载模板</button></div></div>';
+      '<button class="btn btn-primary" onclick="processXlsx()">📤 Importar / 导入</button>' +
+      '<button class="btn btn-gold" onclick="dlTemplate()">⬇️ Baixar Modelo / 下载模板</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function normalizeModValue(raw) {
+  // normaliza modalidade: lowercase, remove acentos comuns, trim
+  var s = (raw||'').toString().toLowerCase().trim()
+    .replace(/ç/g,'c').replace(/ã/g,'a').replace(/â/g,'a').replace(/á/g,'a').replace(/à/g,'a')
+    .replace(/ê/g,'e').replace(/é/g,'e').replace(/í/g,'i').replace(/ô/g,'o').replace(/ó/g,'o')
+    .replace(/ú/g,'u').replace(/ü/g,'u');
+  // mapeamento de variações comuns → chave canônica
+  var MAP = {
+    'devolucao':'devolucao','devolução':'devolucao','devol':'devolucao',
+    'recebimento':'recebimento','receb':'recebimento',
+    'sem movimentacao':'sem movimentacao','sem movimentação':'sem movimentacao','s/movimentacao':'sem movimentacao','sem mov':'sem movimentacao',
+    'reembalo':'reembalo','re-embalo':'reembalo','reembalagem':'reembalo',
+    'expedicao':'expedicao','expedição':'expedicao','expedi':'expedicao',
+    'inducao':'inducao','indução':'inducao','indu':'inducao',
+    'carregamento':'carregamento','carrega':'carregamento','carga':'carregamento',
+    'lote':'lote'
+  };
+  return MAP[s] || s;
 }
 
 function processXlsx() {
@@ -1096,44 +1202,71 @@ function processXlsx() {
         toast('Arquivo vazio ou sem dados válidos / 文件为空','warn'); return;
       }
 
-      var preview = document.getElementById('xlpreview');
-      preview.innerHTML = '<div class="alert alert-info">📋 ' + data.length + ' linhas encontradas. Importando em lotes... / ' + data.length + '行，批量上传中...</div>';
+      // Normaliza e prepara linhas — vincula líder automaticamente
+      var rows = [];
+      data.forEach(function(r) {
+        var norm = {};
+        Object.keys(r).forEach(function(k){ norm[k.toLowerCase().trim()] = r[k]; });
+        var name = ((norm['nome']||norm['name']||norm['colaborador']||'')).toString().trim();
+        var cargo= ((norm['cargo']||'')).toString().toLowerCase().trim();
+        var turno= ((norm['turno']||'T1')).toString().toUpperCase().trim();
+        var modRaw = (norm['modalidade']||norm['area']||norm['área']||'').toString();
+        var modalidade = normalizeModValue(modRaw);
+        if (!turno.match(/^T[1-3]$/)) turno = 'T1';
+        var validCargos = ['auxiliar','focal','assistente'];
+        if (!name || validCargos.indexOf(cargo) < 0) return;
+        // Vínculo automático de líder
+        var liderId = autoLider(turno, modalidade);
+        rows.push({ name:name, cargo:cargo, turno:turno, modalidade:modalidade, liderId:liderId });
+      });
 
-      // Enviar em lotes de 20 para não estourar URL
-      var BATCH = 20;
-      var totalAdded = 0;
-      var totalIgnored = 0;
-      var batches = [];
-      for (var i = 0; i < data.length; i += BATCH) {
-        batches.push(data.slice(i, i + BATCH));
+      if (rows.length === 0) {
+        toast('Nenhuma linha válida encontrada. Verifique as colunas e cargos. / 无有效行，请检查列名和职位', 'warn');
+        return;
       }
 
+      var preview = document.getElementById('xlpreview');
+      preview.innerHTML = '<div class="alert alert-info">📋 ' + rows.length + ' colaboradores válidos. Salvando um a um... / ' + rows.length + '名员工，逐条保存中...</div>';
+
+      // Envia UM colaborador por request GET (garantido no Apps Script)
       var idx = 0;
-      function sendNext() {
-        if (idx >= batches.length) {
-          var msg = '✅ ' + totalAdded + ' importados, ' + totalIgnored + ' ignorados / 已导入' + totalAdded + '条';
-          preview.innerHTML = '<div class="alert alert-success">' + msg + '</div>';
-          toast(msg, 'success');
+      var added = 0;
+      var errors = 0;
+      var errorMsgs = [];
+
+      function sendOne() {
+        if (idx >= rows.length) {
+          var msg = '✅ ' + added + ' importados' + (errors>0?' | ⚠️ '+errors+' erros':'') + ' / 已导入' + added + '条';
+          preview.innerHTML = '<div class="alert alert-' + (errors>0?'warn':'success') + '">' + msg +
+            (errorMsgs.length ? '<br><small>' + errorMsgs.slice(0,3).join('; ') + '</small>' : '') + '</div>';
+          toast(msg, errors > 0 ? 'warn' : 'success');
           refreshData();
           return;
         }
-        var lote = batches[idx];
+        var row = rows[idx];
         idx++;
-        preview.innerHTML = '<div class="alert alert-info">⏳ Enviando lote ' + idx + '/' + batches.length + '... / 发送批次 ' + idx + '/' + batches.length + '</div>';
-        apiPost('importColabs', { callerRole: S.user.role, rows: lote }).then(function(res) {
-          if (!res.ok) {
-            toast('Erro no lote ' + idx + ': ' + res.msg, 'error');
-            preview.innerHTML = '<div class="alert alert-error">❌ ' + res.msg + '</div>';
-            return;
-          }
-          totalAdded   += (res.data && res.data.added)    ? parseInt(res.data.added)    : 0;
-          totalIgnored += (res.data && res.data.ignorados) ? parseInt(res.data.ignorados) : 0;
-          sendNext();
-        }).catch(function(err) {
-          toast('Falha de conexão no lote ' + idx, 'error');
+        // Atualiza progresso
+        preview.innerHTML = '<div class="alert alert-info">⏳ Salvando ' + idx + '/' + rows.length + ': ' + esc(row.name) + '...</div>';
+
+        api('saveColab', {
+          callerRole: S.user.role,
+          id: '',
+          name: row.name,
+          cargo: row.cargo,
+          turno: row.turno,
+          modalidade: row.modalidade,
+          liderId: row.liderId
+        }).then(function(res) {
+          if (res.ok) { added++; }
+          else { errors++; errorMsgs.push(row.name + ': ' + (res.msg||'erro')); }
+          sendOne();
+        }).catch(function() {
+          errors++;
+          errorMsgs.push(row.name + ': falha de conexão');
+          sendOne();
         });
       }
-      sendNext();
+      sendOne();
 
     } catch(err) {
       toast('Erro ao ler Excel: ' + err.message, 'error');
@@ -1145,13 +1278,25 @@ function processXlsx() {
 function dlTemplate() {
   var ws = XLSX.utils.aoa_to_sheet([
     ['nome','cargo','turno','modalidade'],
-    ['João Silva','auxiliar','T1','Carregamento'],
-    ['Maria Lima','focal','T2','Separação'],
-    ['Carlos Souza','assistente','T1','Indução']
+    ['João Silva',   'auxiliar',  'T1', 'carregamento'],
+    ['Maria Lima',   'focal',     'T1', 'inducao'],
+    ['Carlos Souza', 'assistente','T2', 'expedicao'],
+    ['Ana Costa',    'auxiliar',  'T2', 'recebimento'],
+    ['Pedro Melo',   'focal',     'T3', 'lote'],
+    ['Lucia Reis',   'assistente','T3', 'reembalo']
   ]);
+  // Legenda de modalidades válidas
+  var wsLeg = XLSX.utils.aoa_to_sheet(
+    [['Modalidades válidas / 有效类别','Cargo válidos / 有效职位','Turnos / 班次']].concat(
+      MODS.map(function(m,i){
+        return [m, i<3?['auxiliar','focal','assistente'][i]:'', i<3?['T1','T2','T3'][i]:''];
+      })
+    )
+  );
   var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,'Colaboradores',ws);
-  XLSX.writeFile(wb,'modelo_colaboradores.xlsx');
+  XLSX.utils.book_append_sheet(wb, 'Colaboradores', ws);
+  XLSX.utils.book_append_sheet(wb, 'Referencia', wsLeg);
+  XLSX.writeFile(wb, 'modelo_colaboradores.xlsx');
 }
 
 // ============================================================
